@@ -24,16 +24,16 @@ public class AuthService {
 
     @Transactional
     public Long signup(SignupRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByUsername(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_USERNAME);
         }
 
-        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        String encodedPassword = passwordEncoder.encode(request.password());
 
         User newUser = User.builder()
-                .username(request.getUsername())
+                .username(request.username())
                 .password(encodedPassword)
-                .nickname(request.getNickname())
+                .nickname(request.nickname())
                 .build();
 
         return userRepository.save(newUser).getId();
@@ -41,10 +41,10 @@ public class AuthService {
 
     @Transactional
     public TokenResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
+        User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
@@ -58,15 +58,15 @@ public class AuthService {
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
-        if (!jwtUtil.validateToken(request.getRefreshToken())) {
+        if (!jwtUtil.validateToken(request.refreshToken())) {
             throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
 
-        String username = jwtUtil.getUsernameFromToken(request.getRefreshToken());
+        String username = jwtUtil.getUsernameFromToken(request.refreshToken());
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        if (!user.getRefreshToken().equals(request.getRefreshToken())) {
+        if (!user.getRefreshToken().equals(request.refreshToken())) {
             throw new CustomException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
         }
 
