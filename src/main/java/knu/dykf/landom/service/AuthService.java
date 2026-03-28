@@ -5,6 +5,8 @@ import knu.dykf.landom.dto.request.RefreshTokenRequest;
 import knu.dykf.landom.dto.request.SignupRequest;
 import knu.dykf.landom.dto.response.TokenResponse;
 import knu.dykf.landom.entity.User;
+import knu.dykf.landom.exception.CustomException;
+import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.jwt.JwtUtil;
 import knu.dykf.landom.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +24,8 @@ public class AuthService {
 
     @Transactional
     public Long signup(SignupRequest request) {
-
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+            throw new CustomException(ErrorCode.DUPLICATE_USERNAME);
         }
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -41,10 +42,10 @@ public class AuthService {
     @Transactional
     public TokenResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("등록되지 않은 아이디입니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
 
         String accessToken = jwtUtil.createAccessToken(user.getUsername());
@@ -57,17 +58,16 @@ public class AuthService {
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
-
         if (!jwtUtil.validateToken(request.getRefreshToken())) {
-            throw new IllegalArgumentException("토큰이 만료되었습니다.");
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
         }
 
         String username = jwtUtil.getUsernameFromToken(request.getRefreshToken());
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (!user.getRefreshToken().equals(request.getRefreshToken())) {
-            throw new IllegalArgumentException("잘못된 리프레시 토큰입니다.");
+            throw new CustomException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
         }
 
         String newAccess = jwtUtil.createAccessToken(username);
