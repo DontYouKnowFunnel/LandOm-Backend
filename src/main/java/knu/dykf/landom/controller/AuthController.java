@@ -3,6 +3,7 @@ package knu.dykf.landom.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import knu.dykf.landom.dto.request.LoginRequest;
+import knu.dykf.landom.dto.request.RefreshTokenRequest;
 import knu.dykf.landom.dto.request.SignupRequest;
 import knu.dykf.landom.dto.response.TokenResponse;
 import knu.dykf.landom.service.AuthService;
@@ -31,6 +32,13 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request) {
         TokenResponse tokenResponse = authService.login(request);
+        return ResponseEntity.ok(tokenResponse);
+    }
+
+    @Operation(summary = "토큰 재발급", description = "Refresh Token을 사용하여 새로운 Access/Refresh 토큰을 발급받습니다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        TokenResponse tokenResponse = authService.refresh(request);
         return ResponseEntity.ok(tokenResponse);
     }
 }

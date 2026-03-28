@@ -30,6 +30,13 @@ public class User {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
+    @Column
+    private String refreshToken;
+
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
     @Builder
     public User(String username, String password, String nickname) {
         this.username = username;

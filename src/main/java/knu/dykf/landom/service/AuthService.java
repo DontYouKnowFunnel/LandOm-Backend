@@ -1,6 +1,7 @@
 package knu.dykf.landom.service;
 
 import knu.dykf.landom.dto.request.LoginRequest;
+import knu.dykf.landom.dto.request.RefreshTokenRequest;
 import knu.dykf.landom.dto.request.SignupRequest;
 import knu.dykf.landom.dto.response.TokenResponse;
 import knu.dykf.landom.entity.User;
@@ -49,8 +50,30 @@ public class AuthService {
         String accessToken = jwtUtil.createAccessToken(user.getUsername());
         String refreshToken = jwtUtil.createRefreshToken(user.getUsername());
 
-        // Tip: 실제 운영 시에는 refreshToken을 DB나 Redis에 저장하여 검증 프로세스를 추가해야 합니다.
+        user.updateRefreshToken(refreshToken);
 
         return new TokenResponse(accessToken, refreshToken);
+    }
+
+    @Transactional
+    public TokenResponse refresh(RefreshTokenRequest request) {
+
+        if (!jwtUtil.validateToken(request.getRefreshToken())) {
+            throw new IllegalArgumentException("토큰이 만료되었습니다.");
+        }
+
+        String username = jwtUtil.getUsernameFromToken(request.getRefreshToken());
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        if (!user.getRefreshToken().equals(request.getRefreshToken())) {
+            throw new IllegalArgumentException("잘못된 리프레시 토큰입니다.");
+        }
+
+        String newAccess = jwtUtil.createAccessToken(username);
+        String newRefresh = jwtUtil.createRefreshToken(username);
+        user.updateRefreshToken(newRefresh);
+
+        return new TokenResponse(newAccess, newRefresh);
     }
 }

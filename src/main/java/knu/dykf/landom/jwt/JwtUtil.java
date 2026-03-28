@@ -1,7 +1,6 @@
 package knu.dykf.landom.jwt;
 
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,11 +40,35 @@ public class JwtUtil {
 
     private String createToken(String username, long expirationTime) {
         Date date = new Date();
+
         return Jwts.builder()
-                .setSubject(username)
-                .setExpiration(new Date(date.getTime() + expirationTime))
-                .setIssuedAt(date)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .subject(username)
+                .expiration(new Date(date.getTime() + expirationTime))
+                .issuedAt(date)
+                .signWith(key)
                 .compact();
+    }
+
+    // 토큰에서 username 추출
+    public String getUsernameFromToken(String token) {
+        return Jwts.parser()
+                .verifyWith((javax.crypto.SecretKey) key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+    }
+
+    // 토큰 유효성 검증
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parser()
+                    .verifyWith((javax.crypto.SecretKey) key)
+                    .build()
+                    .parseSignedClaims(token);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
