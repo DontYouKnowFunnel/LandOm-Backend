@@ -1,13 +1,13 @@
-package knu.dykf;
+package knu.dykf.landom;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DykfApplication {
+public class LandomApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(DykfApplication.class, args);
+        SpringApplication.run(LandomApplication.class, args);
     }
 
 }

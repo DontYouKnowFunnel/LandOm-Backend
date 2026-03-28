@@ -1,10 +1,10 @@
-package knu.dykf;
+package knu.dykf.landom;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class DykfApplicationTests {
+class LandomApplicationTests {
 
     @Test
     void contextLoads() {
