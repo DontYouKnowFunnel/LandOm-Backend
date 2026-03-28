@@ -2,6 +2,7 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+.env
 
 ### IDE (IntelliJ, VS Code, etc) ###
 .idea/
@@ -14,3 +15,5 @@ out/
 
 ### Spring Boot ###
 HELP.md
+
+application-local.yml

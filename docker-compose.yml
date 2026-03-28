@@ -1,28 +1,28 @@
 services:
-  # 1. MySQL (유저, 프로젝트 데이터용)
   db:
     image: mysql:8.0
     container_name: mysql-db
     ports:
-      - "3306:3306"
+      - "3308:3306"
     environment:
-      MYSQL_DATABASE: myapp_db
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # 2. ClickHouse (퍼널 분석 데이터용)
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse-server
     ports:
-      - "8123:8123" # HTTP 인터페이스
-      - "9000:9000" # Native 프로토콜
+      - "8123:8123"
+      - "9000:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
     ulimits:
@@ -30,20 +30,21 @@ services:
         soft: 262144
         hard: 262144
 
-  # 3. Spring Boot App
   app:
     build: .
-    container_name: spring-app
+    container_name: landom-app
     ports:
       - "8080:8080"
     depends_on:
-      - db
-      - clickhouse
+      db:
+        condition: service_healthy
+      clickhouse:
+        condition: service_started
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/myapp_db?useSSL=false&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-      - CLICKHOUSE_HOST=clickhouse
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
 
 volumes:
   mysql_data:
