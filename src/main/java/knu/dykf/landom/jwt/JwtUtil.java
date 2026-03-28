@@ -13,11 +13,6 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
-    // Access Token: 30분
-    private final long ACCESS_TOKEN_TIME = 30 * 60 * 1000L;
-    // Refresh Token: 7일
-    private final long REFRESH_TOKEN_TIME = 7 * 24 * 60 * 60 * 1000L;
-
     @Value("${jwt.secret.key}")
     private String secretKey;
     private Key key;
@@ -30,11 +25,15 @@ public class JwtUtil {
 
     // Access Token 생성
     public String createAccessToken(String username) {
+        // Access Token: 30분
+        long ACCESS_TOKEN_TIME = 30 * 60 * 1000L;
         return createToken(username, ACCESS_TOKEN_TIME);
     }
 
     // Refresh Token 생성
     public String createRefreshToken(String username) {
+        // Refresh Token: 7일
+        long REFRESH_TOKEN_TIME = 7 * 24 * 60 * 60 * 1000L;
         return createToken(username, REFRESH_TOKEN_TIME);
     }
 

@@ -23,7 +23,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
 
     @Transactional
-    public Long signup(SignupRequest request) {
+    public void signup(SignupRequest request) {
         if (userRepository.existsByUsername(request.username())) {
             throw new CustomException(ErrorCode.DUPLICATE_USERNAME);
         }
@@ -36,7 +36,7 @@ public class AuthService {
                 .nickname(request.nickname())
                 .build();
 
-        return userRepository.save(newUser).getId();
+        userRepository.save(newUser);
     }
 
     @Transactional
