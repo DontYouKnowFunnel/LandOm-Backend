@@ -1,0 +1,50 @@
+services:
+  # 1. MySQL (유저, 프로젝트 데이터용)
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: myapp_db
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. ClickHouse (퍼널 분석 데이터용)
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-server
+    ports:
+      - "8123:8123" # HTTP 인터페이스
+      - "9000:9000" # Native 프로토콜
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  # 3. Spring Boot App
+  app:
+    build: .
+    container_name: spring-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+      - clickhouse
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/myapp_db?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - CLICKHOUSE_HOST=clickhouse
+
+volumes:
+  mysql_data:
+  clickhouse_data:
