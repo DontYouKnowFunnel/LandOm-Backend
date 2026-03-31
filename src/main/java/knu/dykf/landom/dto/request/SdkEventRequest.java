@@ -20,6 +20,9 @@ public record SdkEventRequest(
         @NotBlank(message = "url은 필수입니다.")
         String url,
 
+        @Schema(description = "API 키 (sendBeacon 통신 등 헤더 누락 시 대체용)", example = "proj_12345")
+        String apiKey,
+
         @Schema(description = "발생 이벤트 목록")
         @Valid
         List<EventDetail> events

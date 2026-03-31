@@ -22,11 +22,12 @@ public class EventController {
     @Operation(summary = "이벤트 수집", description = "SDK로부터 전달받은 다건의 이벤트를 저장합니다.")
     @PostMapping
     public ResponseEntity<Void> collectEvents(
-            @Parameter(description = "프로젝트 API 키", required = true)
-            @RequestHeader("X-Project-Key") String projectKey,
+            @Parameter(description = "프로젝트 API 키", required = false)
+            @RequestHeader(value = "X-Project-Key", required = false) String headerKey,
             @Valid @RequestBody SdkEventRequest request) {
 
-        eventService.collectEvents(projectKey, request);
+        // 로직 판단 없이 바로 Service로 위임합니다.
+        eventService.collectEvents(headerKey, request);
 
         return ResponseEntity.ok().build();
     }
