@@ -20,9 +20,11 @@ spring:
       enabled: true
 
 clickhouse:
-  host: ${CLICKHOUSE_HOST:localhost}
-  port: 8123
-  database: default
+  host: ${CLICKHOUSE_HOST}
+  port: ${CLICKHOUSE_PORT}
+  database: ${CLICKHOUSE_DATABASE}
+  username: ${CLICKHOUSE_USERNAME}
+  password: ${CLICKHOUSE_PASSWORD}
 
 jwt:
   secret:
