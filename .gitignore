@@ -17,3 +17,5 @@ out/
 HELP.md
 
 application-local.yml
+index.html
+landom-sdk.umd.js
