@@ -35,7 +35,7 @@ services:
         soft: 262144
         hard: 262144
 
-  app:
+  landom-app:
     build: .
     container_name: landom-app
     ports:
@@ -45,11 +45,10 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_started
+    env_file:
+      - .env
     environment:
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
-      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_HOST=clickhouse
 
 volumes:
   mysql_data:
