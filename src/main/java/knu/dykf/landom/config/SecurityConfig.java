@@ -3,6 +3,7 @@ package knu.dykf.landom.config;
 import knu.dykf.landom.jwt.JwtAuthenticationFilter;
 import knu.dykf.landom.jwt.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -17,12 +18,16 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    @Value("${server.url}")
+    private String serverUrl;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -47,7 +52,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*"); // 모든 오리진 허용 (테스트용)
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:8080",       // 로컬 개발 환경
+                serverUrl  // 실제 운영 환경
+        ));
         configuration.addAllowedMethod("*");        // 모든 HTTP Method 허용
         configuration.addAllowedHeader("*");        // 모든 Header 허용
         configuration.setAllowCredentials(true);    // 쿠키/인증정보 포함 허용
