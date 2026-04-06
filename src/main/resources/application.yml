@@ -29,3 +29,6 @@ clickhouse:
 jwt:
   secret:
     key: ${JWT_SECRET_KEY}
+
+server:
+  url: ${SERVER_URL}
