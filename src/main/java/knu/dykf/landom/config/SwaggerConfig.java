@@ -7,14 +7,20 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import org.springdoc.core.customizers.OperationCustomizer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.util.Collections;
 import java.util.List;
 
 @Configuration
+@Profile("dev")
 public class SwaggerConfig {
+
+    @Value("${server.url}")
+    private String serverUrl;
 
     @Bean
     public OpenAPI openAPI() {
@@ -32,7 +38,8 @@ public class SwaggerConfig {
                 .info(apiInfo())
                 .addSecurityItem(securityRequirement)
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("로컬 개발 서버")
+                        new Server().url("http://localhost:8080").description("로컬 개발 서버"),
+                        new Server().url(serverUrl).description("배포 서버")
                 ));
     }
 
