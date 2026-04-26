@@ -10,5 +10,8 @@ public record ProjectCreateRequest(
         String name,
 
         @Schema(description = "프로젝트 설명", example = "프로젝트에 대한 간단한 설명입니다.")
-        String description
+        String description,
+
+        @Schema(description = "랜딩 페이지 url", example = "https://www.google.com")
+        String url
 ) {}

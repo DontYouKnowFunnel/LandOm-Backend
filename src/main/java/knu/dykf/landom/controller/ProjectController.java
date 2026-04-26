@@ -72,4 +72,15 @@ public class ProjectController {
         projectService.deleteProject(userDetails.getUsername(), id);
         return ResponseEntity.noContent().build();
     }
+
+    @Operation(summary = "프로젝트 랜딩 페이지 크롤링", description = "프로젝트 ID를 통해 DB에 저장된 URL을 조회한 후 크롤링을 수행합니다.")
+    @ApiResponse(responseCode = "200", description = "크롤링 성공")
+    @GetMapping("/{id}/crawl")
+    public ResponseEntity<String> crawlProjectLandingPage(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+
+        String html = projectService.crawlProjectHtml(userDetails.getUsername(), id);
+        return ResponseEntity.ok(html);
+    }
 }
