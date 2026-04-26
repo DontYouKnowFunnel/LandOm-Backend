@@ -10,5 +10,8 @@ public record ProjectUpdateRequest(
         String name,
 
         @Schema(description = "변경할 프로젝트 설명", example = "수정된 프로젝트 설명입니다.")
-        String description
+        String description,
+
+        @Schema(description = "변경할 랜딩 페이지 url", example = "https://www.naver.com")
+        String url
 ) {}

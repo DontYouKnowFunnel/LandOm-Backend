@@ -27,6 +27,8 @@ public class Project {
 
     private String description;
 
+    private String url;
+
     @Column(nullable = false, unique = true)
     private String apiKey;
 
