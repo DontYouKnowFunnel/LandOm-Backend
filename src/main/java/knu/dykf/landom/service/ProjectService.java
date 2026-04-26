@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ProjectService {
 
+    private final CrawlingService crawlingService;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
@@ -33,6 +34,7 @@ public class ProjectService {
                 .user(user)
                 .name(request.name())
                 .description(request.description())
+                .url(request.url())
                 .build();
 
         Project savedProject = projectRepository.save(project);
@@ -60,7 +62,7 @@ public class ProjectService {
     public ProjectResponse updateProject(String username, Long projectId, ProjectUpdateRequest request) {
         Project project = getProjectAndValidateOwnership(username, projectId);
 
-        project.updateInfo(request.name(), request.description());
+        project.updateInfo(request.name(), request.description(), request.url());
 
         return mapToResponse(project);
     }
@@ -94,8 +96,24 @@ public class ProjectService {
                 project.getId(),
                 project.getName(),
                 project.getDescription(),
+                project.getUrl(),
                 project.getApiKey(),
                 project.getCreatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public String crawlProjectHtml(String username, Long projectId) {
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getUser().getUsername().equals(username)) {
+            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        String targetUrl = project.getUrl();
+
+        return crawlingService.crawlLandingPage(targetUrl);
     }
 }

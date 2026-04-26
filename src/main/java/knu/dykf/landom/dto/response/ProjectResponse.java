@@ -14,6 +14,9 @@ public record ProjectResponse(
         @Schema(description = "프로젝트 설명", example = "프로젝트에 대한 간단한 설명입니다.")
         String description,
 
+        @Schema(description = "랜딩페이지 url", example = "랜딩페이지 url입니다.")
+        String url,
+
         @Schema(description = "API 키", example = "550e8400-e29b-41d4-a716-446655440000")
         String apiKey,
 

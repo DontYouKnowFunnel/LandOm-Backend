@@ -36,9 +36,10 @@ public class Project {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
-    public void updateInfo(String name, String description) {
+    public void updateInfo(String name, String description, String url) {
         this.name = name;
         this.description = description;
+        this.url = url;
     }
 
     private String generateApiKey() {
@@ -46,10 +47,11 @@ public class Project {
     }
 
     @Builder
-    public Project(User user, String name, String description) {
+    public Project(User user, String name, String description, String url) {
         this.user = user;
         this.name = name;
         this.description = description;
+        this.url = url;
         this.apiKey = generateApiKey();
     }
 }
