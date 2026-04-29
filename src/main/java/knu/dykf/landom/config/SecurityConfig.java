@@ -53,7 +53,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:8080",       // 로컬 개발 환경
+                "http://localhost:8080",
+                "http://localhost:5173",// 로컬 개발 환경
                 serverUrl  // 실제 운영 환경
         ));
         configuration.addAllowedMethod("*");        // 모든 HTTP Method 허용
