@@ -26,8 +26,12 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+
     @Value("${server.url}")
     private String serverUrl;
+
+    @Value("frontend.url")
+    private String frontendUrl;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -55,7 +59,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:8080",
                 "http://localhost:5173",// 로컬 개발 환경
-                serverUrl  // 실제 운영 환경
+                serverUrl,  // 실제 운영 환경
+                frontendUrl
         ));
         configuration.addAllowedMethod("*");        // 모든 HTTP Method 허용
         configuration.addAllowedHeader("*");        // 모든 Header 허용
