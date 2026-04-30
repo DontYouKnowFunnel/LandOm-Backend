@@ -39,7 +39,6 @@ public record SdkEventRequest(
             long timestamp,
 
             @Schema(description = "이벤트 발생 요소의 고유 CSS Selector", example = "main > section.pricing > div.card > button")
-            @NotBlank(message = "모든 행동 데이터는 cssSelector를 포함해야 합니다.")
             String cssSelector,
 
             @Schema(description = "타입별 개별 데이터 (예: scroll의 경우 yOffset 등)", example = "{\"isVisible\": true}")

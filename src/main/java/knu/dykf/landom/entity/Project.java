@@ -1,10 +1,15 @@
 package knu.dykf.landom.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -53,5 +58,14 @@ public class Project {
         this.description = description;
         this.url = url;
         this.apiKey = generateApiKey();
+    }
+
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("stepOrder ASC")
+    private List<Section> funnelSections = new ArrayList<>();
+
+    public void updateFunnelSections(List<Section> newSections) {
+        this.funnelSections.clear();
+        this.funnelSections.addAll(newSections);
     }
 }
