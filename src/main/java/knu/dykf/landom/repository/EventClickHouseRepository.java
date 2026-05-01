@@ -9,6 +9,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public class EventClickHouseRepository {
@@ -51,6 +52,37 @@ public class EventClickHouseRepository {
         }).toList();
 
         jdbcTemplate.batchUpdate(eventSql, batchArgs);
+    }
+
+    public long getTotalSessionCount(String apiKey) {
+        String sql = """
+            SELECT count(DISTINCT session_id)
+            FROM event_details
+            WHERE session_id IN (
+                SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+            )
+        """;
+        return jdbcTemplate.queryForObject(sql, Long.class, apiKey);
+    }
+
+    public Map<String, Object> getSectionStats(String apiKey, String cssSelector) {
+        String sql = """
+            SELECT 
+                count(DISTINCT session_id) AS reached_count,
+                avg(duration_seconds) AS avg_duration
+            FROM (
+                SELECT 
+                    session_id,
+                    dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
+                FROM event_details
+                WHERE session_id IN (
+                    SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+                )
+                AND css_selector LIKE concat(?, '%')
+                GROUP BY session_id
+            )
+        """;
+        return jdbcTemplate.queryForMap(sql, apiKey, cssSelector);
     }
 
     public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {

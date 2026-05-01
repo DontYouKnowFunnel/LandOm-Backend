@@ -4,13 +4,16 @@ import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.entity.Section;
 import knu.dykf.landom.repository.EventClickHouseRepository;
+import knu.dykf.landom.repository.ProjectRepository;
 import knu.dykf.landom.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -19,11 +22,38 @@ public class AnalyticsService {
 
     private final EventClickHouseRepository eventClickHouseRepository;
     private final SectionRepository sectionRepository;
+    private final ProjectRepository projectRepository;
 
-    public FunnelResponse getScrollFunnelAnalytics(String projectKey) {
-        List<FunnelResponse.FunnelData> data = null;
+    public FunnelResponse getFunnelAnalytics(Long id, String apiKey) {
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+        long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
 
-        return new FunnelResponse(data);
+        List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
+        long previousReachedCount = totalSessions;
+
+        for (Section section : sections) {
+            Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
+                    apiKey, section.getCssSelector());
+
+            long reachedCount = ((Number) stats.get("reached_count")).longValue();
+            double avgDurationSeconds = ((Number) stats.get("avg_duration")).doubleValue();
+
+            double reachRate = totalSessions == 0 ? 0 : Math.round((double) reachedCount / totalSessions * 100.0) / 100.0;
+            double dropRate = previousReachedCount == 0 ? 0 :
+                    Math.round((double) (previousReachedCount - reachedCount) / previousReachedCount * 100.0) / 100.0;
+
+            funnelDataList.add(new FunnelResponse.FunnelData(
+                    section.getName(),
+                    reachedCount,
+                    reachRate,
+                    dropRate,
+                    formatDuration((long) avgDurationSeconds)
+            ));
+
+            previousReachedCount = reachedCount;
+        }
+
+        return new FunnelResponse(totalSessions, funnelDataList);
     }
 
     public SessionListResponse getRecentSessions(Long id, String apiKey, int limit) {
