@@ -85,6 +85,28 @@ public class EventClickHouseRepository {
         return jdbcTemplate.queryForMap(sql, apiKey, cssSelector);
     }
 
+    public Map<String, Object> getSummaryStats(String apiKey, String lastSectionSelector) {
+        String sql = """
+        SELECT 
+            count(*) AS total_sessions,
+            avg(duration_seconds) AS avg_total_duration,
+            countIf(is_converted > 0) AS converted_sessions
+        FROM (
+            SELECT 
+                session_id,
+                dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds,
+                countIf(css_selector LIKE concat(?, '%')) AS is_converted
+            FROM event_details
+            WHERE session_id IN (
+                SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+            )
+            GROUP BY session_id
+        )
+    """;
+
+        return jdbcTemplate.queryForMap(sql, lastSectionSelector, apiKey);
+    }
+
     public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
         String sql = """
         SELECT 

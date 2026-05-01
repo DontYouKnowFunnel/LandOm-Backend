@@ -2,6 +2,7 @@ package knu.dykf.landom.service;
 
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
+import knu.dykf.landom.dto.response.SummaryResponse;
 import knu.dykf.landom.entity.Section;
 import knu.dykf.landom.repository.EventClickHouseRepository;
 import knu.dykf.landom.repository.ProjectRepository;
@@ -67,6 +68,33 @@ public class AnalyticsService {
                 .collect(Collectors.toList());
 
         return new SessionListResponse(dtoList);
+    }
+
+    public SummaryResponse getAnalyticsSummary(Long id, String apiKey) {
+
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+
+        // 섹션이 설정되지 않은 경우 기본값 반환
+        if (sections.isEmpty()) {
+            return new SummaryResponse(0, 0.0, "00:00");
+        }
+
+        // 마지막 단계의 셀렉터를 기준으로 전환 여부 판단
+        String lastSectionSelector = sections.get(sections.size() - 1).getCssSelector();
+        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, lastSectionSelector);
+
+        long totalSessions = ((Number) stats.get("total_sessions")).longValue();
+        long convertedSessions = ((Number) stats.get("converted_sessions")).longValue();
+        double avgDurationSeconds = ((Number) stats.get("avg_total_duration")).doubleValue();
+
+        double conversionRate = totalSessions == 0 ? 0 :
+                Math.round((double) convertedSessions / totalSessions * 1000.0) / 1000.0;
+
+        return new SummaryResponse(
+                totalSessions,
+                conversionRate,
+                formatDuration((long) avgDurationSeconds)
+        );
     }
 
     private SessionListResponse.SessionDto mapToDto(

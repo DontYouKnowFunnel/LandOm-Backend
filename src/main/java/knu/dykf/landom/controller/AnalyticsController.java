@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
+import knu.dykf.landom.dto.response.SummaryResponse;
 import knu.dykf.landom.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,5 +43,15 @@ public class AnalyticsController {
 
         SessionListResponse response = analyticsService.getRecentSessions(id, apiKey, limit);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "대시보드 상단 요약 정보 조회", description = "세션 수, 전환율, 평균 체류시간 등 핵심 지표 요약을 조회합니다.")
+    @GetMapping("/summary")
+    public ResponseEntity<SummaryResponse> getAnalyticsSummary(
+            @Parameter(description = "프로젝트 ID", example = "1") @PathVariable Long id,
+            @Parameter(description = "프로젝트 고유 API 키", example = "39a95663-b6f1-4768-9313-b64f3ad77ab2")
+            @RequestHeader("X-Project-Key") String apiKey) {
+
+        return ResponseEntity.ok(analyticsService.getAnalyticsSummary(id, apiKey));
     }
 }
