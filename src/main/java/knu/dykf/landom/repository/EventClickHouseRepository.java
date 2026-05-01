@@ -9,7 +9,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @Repository
 public class EventClickHouseRepository {
@@ -54,35 +53,39 @@ public class EventClickHouseRepository {
         jdbcTemplate.batchUpdate(eventSql, batchArgs);
     }
 
-    public Map<String, Object> getSectionStats(String apiKey, String targetSelector, LocalDateTime start, LocalDateTime end) {
+    public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
         String sql = """
-            SELECT 
-                count(DISTINCT session_id) AS reached_count,
-                avg(duration_seconds) AS avg_duration
-            FROM (
-                SELECT 
-                    session_id,
-                    dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
-                FROM event_details
-                WHERE session_id IN (SELECT session_id FROM event_sessions WHERE api_key = ?)
-                  AND css_selector LIKE concat(?, '%')
-                  AND timestamp BETWEEN ? AND ?
-                GROUP BY session_id
-            )
-        """;
+        SELECT 
+            s.session_id,
+            s.user_agent,
+            min(d.timestamp) as start_time,
+            max(d.timestamp) as end_time,
+            dateDiff('second', min(d.timestamp), max(d.timestamp)) as duration_seconds,
+            argMax(d.css_selector, d.timestamp) as last_selector
+        FROM (SELECT * FROM event_sessions FINAL WHERE api_key = ?) AS s
+        JOIN event_details AS d ON s.session_id = d.session_id
+        GROUP BY s.session_id, s.user_agent
+        ORDER BY start_time DESC
+        LIMIT ?
+    """;
 
-        return jdbcTemplate.queryForMap(sql, apiKey, targetSelector, start, end);
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new SessionSummaryDto(
+                rs.getString("session_id"),
+                rs.getString("user_agent"),
+                rs.getTimestamp("start_time").toLocalDateTime(),
+                rs.getTimestamp("end_time").toLocalDateTime(),
+                rs.getLong("duration_seconds"),
+                rs.getString("last_selector")
+        ), apiKey, limit);
     }
 
-    public long getTotalSessionCount(String apiKey, LocalDateTime start, LocalDateTime end) {
-        String sql = """
-            SELECT count(DISTINCT session_id) 
-            FROM event_sessions 
-            WHERE api_key = ? 
-              AND session_id IN (
-                  SELECT DISTINCT session_id FROM event_details WHERE timestamp BETWEEN ? AND ?
-              )
-        """;
-        return jdbcTemplate.queryForObject(sql, Long.class, apiKey, start, end);
-    }
+    public record SessionSummaryDto(
+            String sessionId,
+            String userAgent,
+            LocalDateTime startTime,
+            LocalDateTime endTime,
+            long durationSeconds,
+            String lastCssSelector
+    ) {}
+
 }

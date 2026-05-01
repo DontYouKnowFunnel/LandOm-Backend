@@ -3,6 +3,7 @@ package knu.dykf.landom.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import knu.dykf.landom.dto.response.FunnelResponse;
+import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,16 @@ public class AnalyticsController {
 
         FunnelResponse response = analyticsService.getScrollFunnelAnalytics(projectKey);
 
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/sessions")
+    public ResponseEntity<SessionListResponse> getRecentSessions(
+            @PathVariable Long id,
+            @RequestHeader("X-Project-Key") String apiKey,
+            @RequestParam(defaultValue = "4") int limit) {
+
+        SessionListResponse response = analyticsService.getRecentSessions(id, apiKey, limit);
         return ResponseEntity.ok(response);
     }
 }
