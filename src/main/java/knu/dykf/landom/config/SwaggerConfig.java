@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Configuration
-@Profile("dev")
+@Profile({"dev", "local"})
 public class SwaggerConfig {
 
     @Value("${server.url}")
