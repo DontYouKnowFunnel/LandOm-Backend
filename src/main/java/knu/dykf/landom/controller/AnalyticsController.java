@@ -3,10 +3,11 @@ package knu.dykf.landom.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import knu.dykf.landom.dto.response.TrendsResponse;
+import knu.dykf.landom.dto.request.SectionRequest;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
+import knu.dykf.landom.dto.response.TrendsResponse;
 import knu.dykf.landom.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -63,5 +64,15 @@ public class AnalyticsController {
             @Parameter(description = "프로젝트 고유 API 키") @RequestHeader("X-Project-Key") String apiKey) {
 
         return ResponseEntity.ok(analyticsService.getTrends(id, apiKey));
+    }
+
+    @Operation(summary = "퍼널 섹션 설정", description = "랜딩 페이지의 퍼널 분석을 위한 섹션 이름과 선택자를 설정합니다.")
+    @PostMapping("/section")
+    public ResponseEntity<Void> updateSections(
+            @Parameter(description = "프로젝트 ID") @PathVariable Long id,
+            @RequestBody SectionRequest request) {
+
+        analyticsService.saveProjectSections(id, request);
+        return ResponseEntity.noContent().build();
     }
 }

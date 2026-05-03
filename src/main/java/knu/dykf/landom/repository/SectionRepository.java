@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface SectionRepository extends JpaRepository<Section, Long> {
     List<Section> findByProjectIdOrderByStepOrderAsc(Long projectId);
+    void deleteByProjectId(Long projectId);
 }

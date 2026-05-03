@@ -1,15 +1,20 @@
 package knu.dykf.landom.service;
 
-import knu.dykf.landom.dto.response.TrendsResponse;
+import knu.dykf.landom.dto.request.SectionRequest;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
+import knu.dykf.landom.dto.response.TrendsResponse;
+import knu.dykf.landom.entity.Project;
 import knu.dykf.landom.entity.Section;
+import knu.dykf.landom.exception.CustomException;
+import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.EventClickHouseRepository;
 import knu.dykf.landom.repository.ProjectRepository;
 import knu.dykf.landom.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -25,6 +30,28 @@ public class AnalyticsService {
     private final EventClickHouseRepository eventClickHouseRepository;
     private final SectionRepository sectionRepository;
     private final ProjectRepository projectRepository;
+
+    @Transactional
+    public void saveProjectSections(Long projectId, SectionRequest request) {
+        // 1. 해당 프로젝트의 기존 섹션 설정 삭제
+        sectionRepository.deleteByProjectId(projectId);
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+
+        // 2. 새로운 섹션 리스트 생성 및 저장
+        List<Section> newSections = request.funnels().stream()
+                .map(step -> Section.builder() // Entity에 @Builder가 있다면 사용, 없다면 생성자 사용
+                        .project(project)
+                        .name(step.name())
+                        .cssSelector(step.selector())
+                        .stepOrder(step.stepOrder())
+                        .build())
+                .toList();
+
+        sectionRepository.saveAll(newSections);
+    }
 
     public FunnelResponse getFunnelAnalytics(Long id, String apiKey) {
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
