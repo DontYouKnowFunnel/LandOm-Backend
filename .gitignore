@@ -2,6 +2,7 @@
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
+/bin/
 .env
 
 ### IDE (IntelliJ, VS Code, etc) ###
