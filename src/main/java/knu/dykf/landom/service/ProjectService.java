@@ -1,5 +1,6 @@
 package knu.dykf.landom.service;
 
+import knu.dykf.landom.dto.request.LlmRequest;
 import knu.dykf.landom.dto.request.ProjectCreateRequest;
 import knu.dykf.landom.dto.request.ProjectUpdateRequest;
 import knu.dykf.landom.dto.response.ProjectListResponse;
@@ -11,8 +12,10 @@ import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.ProjectRepository;
 import knu.dykf.landom.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +28,9 @@ public class ProjectService {
     private final CrawlingService crawlingService;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+
+    @Value("${llm.server.url}")
+    private String llmServerUrl;
 
     @Transactional
     public ProjectResponse createProject(String username, ProjectCreateRequest request) {
@@ -103,7 +109,7 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public String crawlProjectHtml(String username, Long projectId) {
+    public void crawlProjectHtml(String username, Long projectId) {
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
@@ -113,7 +119,16 @@ public class ProjectService {
         }
 
         String targetUrl = project.getUrl();
+        String html = crawlingService.crawlLandingPage(targetUrl);
+        String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
 
-        return crawlingService.crawlLandingPage(targetUrl);
+        RestTemplate restTemplate = new RestTemplate();
+        LlmRequest request = new LlmRequest(projectId, html);
+
+        try {
+            restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.LLM_SERVER_ERROR);
+        }
     }
 }
