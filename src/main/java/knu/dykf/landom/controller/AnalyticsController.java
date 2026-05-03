@@ -3,6 +3,7 @@ package knu.dykf.landom.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import knu.dykf.landom.dto.response.TrendsResponse;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
@@ -53,5 +54,14 @@ public class AnalyticsController {
             @RequestHeader("X-Project-Key") String apiKey) {
 
         return ResponseEntity.ok(analyticsService.getAnalyticsSummary(id, apiKey));
+    }
+
+    @Operation(summary = "주차별 지표 추이 조회", description = "랜딩 페이지 점수 및 전환율의 주차별 변화 추이를 조회합니다.")
+    @GetMapping("/trends")
+    public ResponseEntity<TrendsResponse> getTrends(
+            @Parameter(description = "프로젝트 ID") @PathVariable Long id,
+            @Parameter(description = "프로젝트 고유 API 키") @RequestHeader("X-Project-Key") String apiKey) {
+
+        return ResponseEntity.ok(analyticsService.getTrends(id, apiKey));
     }
 }

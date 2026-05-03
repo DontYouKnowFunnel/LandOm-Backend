@@ -107,6 +107,35 @@ public class EventClickHouseRepository {
         return jdbcTemplate.queryForMap(sql, lastSectionSelector, apiKey);
     }
 
+    public List<TrendRawDto> getWeeklyTrends(String apiKey, String lastSectionSelector) {
+        String sql = """
+        SELECT 
+            concat(toString(toYear(timestamp)), '-', 
+                   leftPad(toString(toMonth(timestamp)), 2, '0'), '-W', 
+                   toString(toRelativeWeekNum(timestamp) - toRelativeWeekNum(toStartOfMonth(timestamp)) + 1)) AS period,
+            -- 점수: 세션당 평균 이벤트 발생 수 (예시)
+            round(count(*) / count(DISTINCT session_id), 0) AS avg_score,
+            -- 전환율 계산용 데이터
+            count(DISTINCT session_id) AS total_sessions,
+            countIf(css_selector LIKE concat(?, '%')) AS converted_sessions
+        FROM event_details
+        WHERE session_id IN (
+            SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+        )
+        GROUP BY period
+        ORDER BY period ASC
+    """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> new TrendRawDto(
+                rs.getString("period"),
+                rs.getInt("avg_score"),
+                rs.getLong("total_sessions"),
+                rs.getLong("converted_sessions")
+        ), lastSectionSelector, apiKey);
+    }
+
+    public record TrendRawDto(String period, int score, long totalSessions, long convertedSessions) {}
+
     public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
         String sql = """
         SELECT 

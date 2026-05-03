@@ -1,5 +1,6 @@
 package knu.dykf.landom.service;
 
+import knu.dykf.landom.dto.response.TrendsResponse;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
@@ -95,6 +96,28 @@ public class AnalyticsService {
                 conversionRate,
                 formatDuration((long) avgDurationSeconds)
         );
+    }
+
+    public TrendsResponse getTrends(Long id, String apiKey) {
+
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+        String lastSelector = sections.isEmpty() ? "" : sections.getLast().getCssSelector();
+
+        List<EventClickHouseRepository.TrendRawDto> rawTrends =
+                eventClickHouseRepository.getWeeklyTrends(apiKey, lastSelector);
+
+        List<TrendsResponse.TrendUnit<Integer>> scores = new ArrayList<>();
+        List<TrendsResponse.TrendUnit<Double>> conversionRates = new ArrayList<>();
+
+        for (var raw : rawTrends) {
+            scores.add(new TrendsResponse.TrendUnit<>(raw.period(), raw.score()));
+
+            double rate = raw.totalSessions() == 0 ? 0 :
+                    Math.round((double) raw.convertedSessions() / raw.totalSessions() * 1000.0) / 1000.0;
+            conversionRates.add(new TrendsResponse.TrendUnit<>(raw.period(), rate));
+        }
+
+        return new TrendsResponse(scores, conversionRates);
     }
 
     private SessionListResponse.SessionDto mapToDto(
