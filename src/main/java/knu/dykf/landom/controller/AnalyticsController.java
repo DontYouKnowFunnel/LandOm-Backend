@@ -11,11 +11,12 @@ import knu.dykf.landom.dto.response.TrendsResponse;
 import knu.dykf.landom.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Analytics", description = "데이터 분석 관련 API (퍼널 및 세션 조회)")
 @RestController
-@RequestMapping("/api/v1/projects/{id}/analytics")
+@RequestMapping(value = "/api/v1/projects/{id}/analytics", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class AnalyticsController {
 

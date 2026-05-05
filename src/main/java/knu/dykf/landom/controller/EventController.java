@@ -9,11 +9,12 @@ import knu.dykf.landom.dto.request.SdkEventRequest;
 import knu.dykf.landom.service.EventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Events", description = "SDK 이벤트 수집 API")
 @RestController
-@RequestMapping("/api/v1/events")
+@RequestMapping(value = "/api/v1/events", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class EventController {
 
