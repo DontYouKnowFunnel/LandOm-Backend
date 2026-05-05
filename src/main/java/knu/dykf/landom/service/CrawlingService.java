@@ -1,34 +1,37 @@
 package knu.dykf.landom.service;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Service;
-import lombok.extern.slf4j.Slf4j;
-import java.io.IOException;
 
-@Slf4j
 @Service
 public class CrawlingService {
 
     public String crawlLandingPage(String url) {
+        // 1. 크롬 드라이버 설정 (헤드리스 모드: 창 안 띄움)
+        WebDriverManager.chromedriver().setup();
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+
+        WebDriver driver = new ChromeDriver(options);
+
         try {
-            log.info("[Jsoup Crawling Start] URL: {}", url);
+            // 2. 페이지 접속
+            driver.get(url);
 
-            // 실제 브라우저(Chrome)인 것처럼 헤더를 설정하여 차단을 방지합니다.
-            Document doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Accept-Language", "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7")
-                    .timeout(10000) // 10초 타임아웃
-                    .get();
+            // 3. 자바스크립트가 실행되어 #root가 채워질 때까지 대기 (최대 10초)
+            Thread.sleep(5000);
 
-            String html = doc.html();
-            log.info("[Jsoup Crawling Success] HTML Length: {}", html.length());
-
-            return html;
-
-        } catch (IOException e) {
-            log.error("[Jsoup Crawling Failed] Error: {}", e.getMessage());
-            throw new RuntimeException("페이지를 불러오는 중 오류가 발생했습니다: " + e.getMessage());
+            // 4. 렌더링된 전체 HTML 가져오기
+            return driver.getPageSource();
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Crawling failed", e);
+        } finally {
+            driver.quit(); // 브라우저 종료
         }
     }
 }

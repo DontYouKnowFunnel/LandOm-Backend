@@ -35,3 +35,7 @@ server:
 
 frontend:
   url: ${FRONTEND_URL}
+
+llm:
+  server:
+    url: ${LLM_SERVER_URL}

@@ -80,7 +80,7 @@ public class ProjectController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
 
-        String html = projectService.crawlProjectHtml(userDetails.getUsername(), id);
-        return ResponseEntity.ok(html);
+        projectService.crawlProjectHtml(userDetails.getUsername(), id);
+        return ResponseEntity.noContent().build();
     }
 }
