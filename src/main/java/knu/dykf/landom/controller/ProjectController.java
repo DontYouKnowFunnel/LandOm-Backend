@@ -13,13 +13,14 @@ import knu.dykf.landom.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Projects", description = "프로젝트 관련 API (내 프로젝트 관리)")
 @RestController
-@RequestMapping("/api/v1/projects")
+@RequestMapping(value = "/api/v1/projects", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 @SecurityRequirement(name = "jwtAuth") // Swagger 상단 자물쇠 아이콘 사용
 public class ProjectController {
