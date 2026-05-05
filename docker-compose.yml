@@ -12,7 +12,17 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}" ]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -45,11 +55,8 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_started
-    environment:
-      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
-      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+    env_file:
+      - .env
 
 volumes:
   mysql_data:
