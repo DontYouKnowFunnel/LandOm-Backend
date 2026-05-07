@@ -47,6 +47,7 @@ services:
 
   app:
     build: .
+    platform: linux/amd64
     container_name: landom-app
     ports:
       - "8080:8080"
