@@ -30,7 +30,7 @@ public class SecurityConfig {
     @Value("${server.url}")
     private String serverUrl;
 
-    @Value("frontend.url")
+    @Value("${frontend.url}")
     private String frontendUrl;
 
     @Bean
