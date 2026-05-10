@@ -4,12 +4,17 @@ import knu.dykf.landom.dto.request.SdkEventRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayInputStream;
 import java.sql.Timestamp;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
 
 @Repository
 public class EventClickHouseRepository {
@@ -43,7 +48,7 @@ public class EventClickHouseRepository {
                         request.sessionId(),
                         event.type(),
                         new Timestamp(event.timestamp()),
-                        objectMapper.writeValueAsString(event.payload()),
+                        serializePayload(event),
                         event.cssSelector()
                 };
             } catch (Exception e) {
@@ -54,6 +59,43 @@ public class EventClickHouseRepository {
         jdbcTemplate.batchUpdate(eventSql, batchArgs);
     }
 
+    private String serializePayload(SdkEventRequest.EventDetail event) throws Exception {
+        if ("replay".equals(event.type()) && isCompressedGzipPayload(event.payload())) {
+            return decompressReplayPayload(event.payload());
+        }
+
+        return objectMapper.writeValueAsString(event.payload());
+    }
+
+    private boolean isCompressedGzipPayload(Map<String, Object> payload) {
+        if (payload == null) {
+            return false;
+        }
+
+        return Boolean.TRUE.equals(payload.get("compressed"))
+                && "gzip".equals(payload.get("compression"))
+                && "base64".equals(payload.get("encoding"))
+                && payload.get("data") instanceof String;
+    }
+
+    private String decompressReplayPayload(Map<String, Object> payload) throws Exception {
+        String encodedData = (String) payload.get("data");
+        byte[] compressedBytes = Base64.getDecoder().decode(encodedData);
+
+        try (GZIPInputStream gzipInputStream =
+                     new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
+            String json = new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
+            JsonNode restoredPayload = objectMapper.readTree(json);
+
+            JsonNode event = restoredPayload.get("event");
+            if (event == null || event.isNull()) {
+                throw new IllegalArgumentException("Decompressed replay payload does not contain rrweb event");
+            }
+
+            return objectMapper.writeValueAsString(restoredPayload);
+        }
+    }
+
     public long getTotalSessionCount(String apiKey) {
         String sql = """
             SELECT count(DISTINCT session_id)
@@ -61,6 +103,7 @@ public class EventClickHouseRepository {
             WHERE session_id IN (
                 SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
             )
+            AND event_type != 'replay'
         """;
         return jdbcTemplate.queryForObject(sql, Long.class, apiKey);
     }
@@ -78,6 +121,7 @@ public class EventClickHouseRepository {
                 WHERE session_id IN (
                     SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
                 )
+                AND event_type != 'replay'
                 AND css_selector LIKE concat(?, '%')
                 GROUP BY session_id
             )
@@ -100,6 +144,7 @@ public class EventClickHouseRepository {
             WHERE session_id IN (
                 SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
             )
+            AND event_type != 'replay'
             GROUP BY session_id
         )
     """;
@@ -122,6 +167,7 @@ public class EventClickHouseRepository {
         WHERE session_id IN (
             SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
         )
+        AND event_type != 'replay'
         GROUP BY period
         ORDER BY period ASC
     """;
@@ -147,6 +193,7 @@ public class EventClickHouseRepository {
             argMax(d.css_selector, d.timestamp) as last_selector
         FROM (SELECT * FROM event_sessions FINAL WHERE api_key = ?) AS s
         JOIN event_details AS d ON s.session_id = d.session_id
+        WHERE d.event_type != 'replay'
         GROUP BY s.session_id, s.user_agent
         ORDER BY start_time DESC
         LIMIT ?
@@ -170,5 +217,31 @@ public class EventClickHouseRepository {
             long durationSeconds,
             String lastCssSelector
     ) {}
+
+    public List<JsonNode> getReplayEvents(String apiKey, String sessionId) {
+        String sql = """
+        SELECT payload
+        FROM event_details
+        WHERE session_id = ?
+        AND event_type = 'replay'
+        AND session_id IN (
+            SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+        )
+        ORDER BY timestamp ASC
+    """;
+
+        return jdbcTemplate.query(sql, (rs, rowNum) -> {
+            try {
+                JsonNode payload = objectMapper.readTree(rs.getString("payload"));
+                JsonNode event = payload.get("event");
+                if (event == null || event.isNull()) {
+                    throw new IllegalStateException("Replay payload does not contain rrweb event");
+                }
+                return event;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, sessionId, apiKey);
+    }
 
 }
