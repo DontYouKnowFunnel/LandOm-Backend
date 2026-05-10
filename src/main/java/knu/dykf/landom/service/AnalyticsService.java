@@ -53,8 +53,10 @@ public class AnalyticsService {
         sectionRepository.saveAll(newSections);
     }
 
-    public FunnelResponse getFunnelAnalytics(Long id, String apiKey) {
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+    public FunnelResponse getFunnelAnalytics(String username, Long id) {
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
 
         List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
@@ -85,9 +87,11 @@ public class AnalyticsService {
         return new FunnelResponse(totalSessions, funnelDataList);
     }
 
-    public SessionListResponse getRecentSessions(Long id, String apiKey, int limit) {
+    public SessionListResponse getRecentSessions(String username, Long id, int limit) {
 
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
                 eventClickHouseRepository.getRecentSessions(apiKey, limit);
 
@@ -98,9 +102,11 @@ public class AnalyticsService {
         return new SessionListResponse(dtoList);
     }
 
-    public SummaryResponse getAnalyticsSummary(Long id, String apiKey) {
+    public SummaryResponse getAnalyticsSummary(String username, Long id) {
 
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
 
         // 섹션이 설정되지 않은 경우 기본값 반환
         if (sections.isEmpty()) {
@@ -125,9 +131,11 @@ public class AnalyticsService {
         );
     }
 
-    public TrendsResponse getTrends(Long id, String apiKey) {
+    public TrendsResponse getTrends(String username, Long id) {
 
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(id);
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         String lastSelector = sections.isEmpty() ? "" : sections.getLast().getCssSelector();
 
         List<EventClickHouseRepository.TrendRawDto> rawTrends =
@@ -145,6 +153,17 @@ public class AnalyticsService {
         }
 
         return new TrendsResponse(scores, conversionRates);
+    }
+
+    private Project getProjectAndValidateOwnership(String username, Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getUser().getUsername().equals(username)) {
+            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        return project;
     }
 
     private SessionListResponse.SessionDto mapToDto(
