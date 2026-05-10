@@ -23,7 +23,7 @@ clickhouse:
   host: ${CLICKHOUSE_HOST}
   port: ${CLICKHOUSE_PORT}
   database: ${CLICKHOUSE_DATABASE}
-  username: ${CLICKHOUSE_USERNAME}
+  username: ${CLICKHOUSE_USER}
   password: ${CLICKHOUSE_PASSWORD}
 
 jwt:
