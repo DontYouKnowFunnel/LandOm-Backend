@@ -37,7 +37,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./init-db:/docker-entrypoint-initdb.d
     environment:
-      - CLICKHOUSE_USER=${CLICKHOUSE_USERNAME}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     ulimits:
