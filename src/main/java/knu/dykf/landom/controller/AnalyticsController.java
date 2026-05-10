@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import knu.dykf.landom.dto.request.SectionRequest;
 import knu.dykf.landom.dto.response.FunnelResponse;
+import knu.dykf.landom.dto.response.ReplayResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
 import knu.dykf.landom.dto.response.TrendsResponse;
@@ -45,6 +46,20 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "4") int limit) {
 
         SessionListResponse response = analyticsService.getRecentSessions(userDetails.getUsername(), id, limit);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "세션 리플레이 이벤트 조회", description = "특정 세션의 rrweb 이벤트 배열을 조회합니다.")
+    @GetMapping("/sessions/{sessionId}/replay")
+    public ResponseEntity<ReplayResponse> getSessionReplay(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Parameter(description = "프로젝트 ID", example = "1")
+            @PathVariable Long id,
+            @Parameter(description = "브라우저 세션 ID", example = "sess_v3_98765")
+            @PathVariable String sessionId) {
+
+        ReplayResponse response = analyticsService.getSessionReplay(
+                userDetails.getUsername(), id, sessionId);
         return ResponseEntity.ok(response);
     }
 
