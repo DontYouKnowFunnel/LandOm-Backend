@@ -37,6 +37,9 @@ public class Project {
     @Column(nullable = false, unique = true)
     private String apiKey;
 
+    @Enumerated(EnumType.STRING)
+    private FunnelAnalysisStatus funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -45,6 +48,22 @@ public class Project {
         this.name = name;
         this.description = description;
         this.url = url;
+    }
+
+    public FunnelAnalysisStatus getFunnelAnalysisStatus() {
+        return funnelAnalysisStatus == null ? FunnelAnalysisStatus.NOT_CREATED : funnelAnalysisStatus;
+    }
+
+    public void startFunnelAnalysis() {
+        this.funnelAnalysisStatus = FunnelAnalysisStatus.IN_PROGRESS;
+    }
+
+    public void completeFunnelAnalysis() {
+        this.funnelAnalysisStatus = FunnelAnalysisStatus.COMPLETED;
+    }
+
+    public void resetFunnelAnalysis() {
+        this.funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
     }
 
     private String generateApiKey() {
@@ -58,6 +77,7 @@ public class Project {
         this.description = description;
         this.url = url;
         this.apiKey = generateApiKey();
+        this.funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
     }
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
