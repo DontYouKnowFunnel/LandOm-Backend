@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS event_sessions (
     ORDER BY (api_key, session_id);
 
 -- 2. 이벤트 상세 정보 테이블 (MergeTree 사용)
+-- rrweb 세션 리플레이도 event_type = 'replay', payload = rrweb event JSON 문자열로 함께 저장합니다.
 -- css_selector는 Nullable(String)로 설정하여 SDK에서 값이 없어도 저장 가능합니다.
 CREATE TABLE IF NOT EXISTS event_details (
     session_id String,

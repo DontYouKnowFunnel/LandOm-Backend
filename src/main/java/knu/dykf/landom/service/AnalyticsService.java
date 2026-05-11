@@ -2,6 +2,7 @@ package knu.dykf.landom.service;
 
 import knu.dykf.landom.dto.request.SectionRequest;
 import knu.dykf.landom.dto.response.FunnelResponse;
+import knu.dykf.landom.dto.response.ReplayResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
 import knu.dykf.landom.dto.response.TrendsResponse;
@@ -15,6 +16,7 @@ import knu.dykf.landom.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -153,6 +155,14 @@ public class AnalyticsService {
         }
 
         return new TrendsResponse(scores, conversionRates);
+    }
+
+    public ReplayResponse getSessionReplay(String username, Long id, String sessionId) {
+        Project project = getProjectAndValidateOwnership(username, id);
+        List<JsonNode> events =
+                eventClickHouseRepository.getReplayEvents(project.getApiKey(), sessionId);
+
+        return new ReplayResponse(sessionId, events);
     }
 
     private Project getProjectAndValidateOwnership(String username, Long projectId) {
