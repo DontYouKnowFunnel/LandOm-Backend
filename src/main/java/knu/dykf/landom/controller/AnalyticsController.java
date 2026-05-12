@@ -3,6 +3,7 @@ package knu.dykf.landom.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import knu.dykf.landom.dto.request.SectionRequest;
 import knu.dykf.landom.dto.response.FunnelResponse;
 import knu.dykf.landom.dto.response.ReplayResponse;
@@ -85,7 +86,7 @@ public class AnalyticsController {
     @PostMapping("/section")
     public ResponseEntity<Void> updateSections(
             @Parameter(description = "프로젝트 ID") @PathVariable Long id,
-            @RequestBody SectionRequest request) {
+            @Valid @RequestBody SectionRequest request) {
 
         analyticsService.saveProjectSections(id, request);
         return ResponseEntity.noContent().build();

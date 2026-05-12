@@ -123,18 +123,13 @@ public class ProjectService {
         funnelAnalysisStatusService.markInProgress(projectId);
         funnelAnalysisTimeoutService.scheduleTimeout(projectId);
 
-        try {
-            String targetUrl = project.getUrl();
-            String html = crawlingService.crawlLandingPage(targetUrl);
-            String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
+        String targetUrl = project.getUrl();
+        String html = crawlingService.crawlLandingPage(targetUrl);
+        String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
 
-            RestTemplate restTemplate = new RestTemplate();
-            LlmRequest request = new LlmRequest(projectId, html);
+        RestTemplate restTemplate = new RestTemplate();
+        LlmRequest request = new LlmRequest(projectId, html);
 
-            restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
-        } catch (Exception e) {
-            funnelAnalysisStatusService.markNotCreated(projectId);
-            throw new CustomException(ErrorCode.LLM_SERVER_ERROR);
-        }
+        restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
     }
 }
