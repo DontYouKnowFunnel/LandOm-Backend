@@ -1,0 +1,35 @@
+package knu.dykf.landom.controller.event;
+
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import knu.dykf.landom.dto.request.event.SdkEventRequest;
+import knu.dykf.landom.service.event.EventService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
+
+@Tag(name = "Events", description = "SDK 이벤트 수집 API")
+@RestController
+@RequestMapping(value = "/api/v1/events", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequiredArgsConstructor
+public class EventController {
+
+    private final EventService eventService;
+
+    @Operation(summary = "이벤트 수집", description = "SDK로부터 전달받은 다건의 이벤트를 저장합니다.")
+    @PostMapping
+    public ResponseEntity<Void> collectEvents(
+            @Parameter(description = "프로젝트 API 키", required = false)
+            @RequestHeader(value = "X-Project-Key", required = false) String headerKey,
+            @Valid @RequestBody SdkEventRequest request) {
+
+        // 로직 판단 없이 바로 Service로 위임합니다.
+        eventService.collectEvents(headerKey, request);
+
+        return ResponseEntity.ok().build();
+    }
+}
