@@ -29,6 +29,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final FunnelAnalysisStatusService funnelAnalysisStatusService;
+    private final FunnelAnalysisTimeoutService funnelAnalysisTimeoutService;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -120,6 +121,7 @@ public class ProjectService {
         }
 
         funnelAnalysisStatusService.markInProgress(projectId);
+        funnelAnalysisTimeoutService.scheduleTimeout(projectId);
 
         try {
             String targetUrl = project.getUrl();

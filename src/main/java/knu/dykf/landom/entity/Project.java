@@ -40,6 +40,8 @@ public class Project {
     @Enumerated(EnumType.STRING)
     private FunnelAnalysisStatus funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
 
+    private LocalDateTime funnelAnalysisStartedAt;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -56,14 +58,22 @@ public class Project {
 
     public void startFunnelAnalysis() {
         this.funnelAnalysisStatus = FunnelAnalysisStatus.IN_PROGRESS;
+        this.funnelAnalysisStartedAt = LocalDateTime.now();
     }
 
     public void completeFunnelAnalysis() {
         this.funnelAnalysisStatus = FunnelAnalysisStatus.COMPLETED;
+        this.funnelAnalysisStartedAt = null;
+    }
+
+    public void failFunnelAnalysis() {
+        this.funnelAnalysisStatus = FunnelAnalysisStatus.FAILED;
+        this.funnelAnalysisStartedAt = null;
     }
 
     public void resetFunnelAnalysis() {
         this.funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
+        this.funnelAnalysisStartedAt = null;
     }
 
     private String generateApiKey() {
@@ -78,6 +88,7 @@ public class Project {
         this.url = url;
         this.apiKey = generateApiKey();
         this.funnelAnalysisStatus = FunnelAnalysisStatus.NOT_CREATED;
+        this.funnelAnalysisStartedAt = null;
     }
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)

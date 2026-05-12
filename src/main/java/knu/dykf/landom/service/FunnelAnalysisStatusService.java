@@ -1,6 +1,7 @@
 package knu.dykf.landom.service;
 
 import knu.dykf.landom.entity.Project;
+import knu.dykf.landom.entity.FunnelAnalysisStatus;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.ProjectRepository;
@@ -25,6 +26,14 @@ public class FunnelAnalysisStatusService {
     public void markNotCreated(Long projectId) {
         Project project = getProject(projectId);
         project.resetFunnelAnalysis();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markFailedIfStillInProgress(Long projectId) {
+        Project project = getProject(projectId);
+        if (project.getFunnelAnalysisStatus() == FunnelAnalysisStatus.IN_PROGRESS) {
+            project.failFunnelAnalysis();
+        }
     }
 
     private Project getProject(Long projectId) {

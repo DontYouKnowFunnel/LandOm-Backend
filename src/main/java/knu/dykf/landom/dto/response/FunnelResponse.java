@@ -17,7 +17,8 @@ public record FunnelResponse(
     public enum Status {
         NOT_CREATED,
         IN_PROGRESS,
-        COMPLETED
+        COMPLETED,
+        FAILED
     }
 
     @Schema(description = "섹션별 도달 및 이탈 통계")

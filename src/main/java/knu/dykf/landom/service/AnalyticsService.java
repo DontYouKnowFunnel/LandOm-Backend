@@ -100,6 +100,7 @@ public class AnalyticsService {
         return switch (status) {
             case IN_PROGRESS -> FunnelResponse.Status.IN_PROGRESS;
             case COMPLETED -> FunnelResponse.Status.COMPLETED;
+            case FAILED -> FunnelResponse.Status.FAILED;
             default -> FunnelResponse.Status.NOT_CREATED;
         };
     }
