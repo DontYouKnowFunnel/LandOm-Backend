@@ -1,6 +1,6 @@
 package knu.dykf.landom.exception;
 
-import knu.dykf.landom.dto.response.ErrorResponse;
+import knu.dykf.landom.dto.response.common.ErrorResponse;
 import io.jsonwebtoken.JwtException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;

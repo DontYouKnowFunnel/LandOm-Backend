@@ -1,0 +1,267 @@
+package knu.dykf.landom.service.analytics;
+
+import knu.dykf.landom.dto.request.analytics.SectionRequest;
+import knu.dykf.landom.dto.response.analytics.FunnelResponse;
+import knu.dykf.landom.dto.response.analytics.ReplayResponse;
+import knu.dykf.landom.dto.response.analytics.SessionListResponse;
+import knu.dykf.landom.dto.response.analytics.SummaryResponse;
+import knu.dykf.landom.dto.response.analytics.TrendsResponse;
+import knu.dykf.landom.entity.project.FunnelAnalysisStatus;
+import knu.dykf.landom.entity.project.Project;
+import knu.dykf.landom.entity.project.Section;
+import knu.dykf.landom.exception.CustomException;
+import knu.dykf.landom.exception.ErrorCode;
+import knu.dykf.landom.repository.event.EventClickHouseRepository;
+import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class AnalyticsService {
+
+    private final EventClickHouseRepository eventClickHouseRepository;
+    private final SectionRepository sectionRepository;
+    private final ProjectRepository projectRepository;
+
+    @Transactional
+    public void saveProjectSections(Long projectId, SectionRequest request) {
+        // 1. 해당 프로젝트의 기존 섹션 설정 삭제
+        sectionRepository.deleteByProjectId(projectId);
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+
+        // 2. 새로운 섹션 리스트 생성 및 저장
+        List<Section> newSections = request.funnels().stream()
+                .map(step -> Section.builder() // Entity에 @Builder가 있다면 사용, 없다면 생성자 사용
+                        .project(project)
+                        .name(step.name())
+                        .cssSelector(step.selector())
+                        .stepOrder(step.stepOrder())
+                        .build())
+                .toList();
+
+        sectionRepository.saveAll(newSections);
+        project.completeFunnelAnalysis();
+    }
+
+    public FunnelResponse getFunnelAnalytics(String username, Long id) {
+        Project project = getProjectAndValidateOwnership(username, id);
+        FunnelResponse.Status status = mapStatus(project.getFunnelAnalysisStatus());
+        if (status == FunnelResponse.Status.NOT_CREATED) {
+            return new FunnelResponse(status, 0, List.of());
+        }
+
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+        long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
+
+        List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
+        long previousReachedCount = totalSessions;
+
+        for (Section section : sections) {
+            Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
+                    apiKey, section.getCssSelector());
+
+            long reachedCount = getLong(stats, "reached_count");
+            double avgDurationSeconds = getDouble(stats, "avg_duration");
+
+            double reachRate = totalSessions == 0 ? 0 : Math.round((double) reachedCount / totalSessions * 100.0) / 100.0;
+            double dropRate = previousReachedCount == 0 ? 0 :
+                    Math.round((double) (previousReachedCount - reachedCount) / previousReachedCount * 100.0) / 100.0;
+
+            funnelDataList.add(new FunnelResponse.FunnelData(
+                    section.getName(),
+                    reachedCount,
+                    reachRate,
+                    dropRate,
+                    formatDuration((long) avgDurationSeconds)
+            ));
+
+            previousReachedCount = reachedCount;
+        }
+
+        return new FunnelResponse(status, totalSessions, funnelDataList);
+    }
+
+    private FunnelResponse.Status mapStatus(FunnelAnalysisStatus status) {
+        return switch (status) {
+            case IN_PROGRESS -> FunnelResponse.Status.IN_PROGRESS;
+            case COMPLETED -> FunnelResponse.Status.COMPLETED;
+            case FAILED -> FunnelResponse.Status.FAILED;
+            default -> FunnelResponse.Status.NOT_CREATED;
+        };
+    }
+
+    public SessionListResponse getRecentSessions(String username, Long id, int limit) {
+
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+        List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
+                eventClickHouseRepository.getRecentSessions(apiKey, limit);
+
+        List<SessionListResponse.SessionDto> dtoList = rawSessions.stream()
+                .map(raw -> mapToDto(raw, sections))
+                .collect(Collectors.toList());
+
+        return new SessionListResponse(dtoList);
+    }
+
+    public SummaryResponse getAnalyticsSummary(String username, Long id) {
+
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+
+        // 섹션이 설정되지 않은 경우 기본값 반환
+        if (sections.isEmpty()) {
+            return new SummaryResponse(0, 0.0, "00:00");
+        }
+
+        // 마지막 단계의 셀렉터를 기준으로 전환 여부 판단
+        String lastSectionSelector = sections.get(sections.size() - 1).getCssSelector();
+        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, lastSectionSelector);
+
+        long totalSessions = getLong(stats, "total_sessions");
+        long convertedSessions = getLong(stats, "converted_sessions");
+        double avgDurationSeconds = getDouble(stats, "avg_total_duration");
+
+        double conversionRate = totalSessions == 0 ? 0 :
+                Math.round((double) convertedSessions / totalSessions * 1000.0) / 1000.0;
+
+        return new SummaryResponse(
+                totalSessions,
+                conversionRate,
+                formatDuration((long) avgDurationSeconds)
+        );
+    }
+
+    public TrendsResponse getTrends(String username, Long id) {
+
+        Project project = getProjectAndValidateOwnership(username, id);
+        String apiKey = project.getApiKey();
+        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+        String lastSelector = sections.isEmpty() ? "" : sections.getLast().getCssSelector();
+
+        List<EventClickHouseRepository.TrendRawDto> rawTrends =
+                eventClickHouseRepository.getWeeklyTrends(apiKey, lastSelector);
+
+        List<TrendsResponse.TrendUnit<Integer>> scores = new ArrayList<>();
+        List<TrendsResponse.TrendUnit<Double>> conversionRates = new ArrayList<>();
+
+        for (var raw : rawTrends) {
+            scores.add(new TrendsResponse.TrendUnit<>(raw.period(), raw.score()));
+
+            double rate = raw.totalSessions() == 0 ? 0 :
+                    Math.round((double) raw.convertedSessions() / raw.totalSessions() * 1000.0) / 1000.0;
+            conversionRates.add(new TrendsResponse.TrendUnit<>(raw.period(), rate));
+        }
+
+        return new TrendsResponse(scores, conversionRates);
+    }
+
+    public ReplayResponse getSessionReplay(String username, Long id, String sessionId) {
+        Project project = getProjectAndValidateOwnership(username, id);
+        List<JsonNode> events =
+                eventClickHouseRepository.getReplayEvents(project.getApiKey(), sessionId);
+
+        return new ReplayResponse(sessionId, events);
+    }
+
+    private Project getProjectAndValidateOwnership(String username, Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getUser().getUsername().equals(username)) {
+            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        return project;
+    }
+
+    private SessionListResponse.SessionDto mapToDto(
+            EventClickHouseRepository.SessionSummaryDto raw,
+            List<Section> sections) {
+
+        String device = parseDevice(raw.userAgent());
+        String timestamp = raw.startTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'"));
+        String duration = formatDuration(raw.durationSeconds());
+
+        String lastSectionName = "Unknown";
+        String status = "DROP";
+        boolean isConverted = false;
+
+        if (raw.lastCssSelector() != null && !sections.isEmpty()) {
+            for (Section section : sections) {
+                if (raw.lastCssSelector().startsWith(section.getCssSelector())) {
+                    lastSectionName = section.getName();
+                    if (section.getStepOrder() == sections.size()) {
+                        isConverted = true;
+                    }
+                }
+            }
+        }
+
+        if (isConverted) {
+            status = "CONVERTED";
+        } else if (raw.endTime().isAfter(LocalDateTime.now().minusMinutes(10))) {
+            status = "EXPLORING";
+        }
+
+        String replayUrl = "/replays/" + raw.sessionId();
+
+        return new SessionListResponse.SessionDto(
+                raw.sessionId(),
+                timestamp,
+                device,
+                lastSectionName,
+                duration,
+                status,
+                replayUrl
+        );
+    }
+
+    private String parseDevice(String userAgent) {
+        if (userAgent == null) return "Unknown";
+        String browser = "Unknown";
+        String os = "Unknown";
+
+        if (userAgent.contains("Chrome")) browser = "Chrome";
+        else if (userAgent.contains("Safari")) browser = "Safari";
+        else if (userAgent.contains("Firefox")) browser = "Firefox";
+
+        if (userAgent.contains("Mac OS X")) os = "Mac";
+        else if (userAgent.contains("Windows")) os = "Windows";
+        else if (userAgent.contains("Android")) os = "Android";
+        else if (userAgent.contains("iPhone") || userAgent.contains("iPad")) os = "iOS";
+
+        return browser + " - " + os;
+    }
+
+    private String formatDuration(long seconds) {
+        return String.format("%02d:%02d", seconds / 60, seconds % 60);
+    }
+
+    private long getLong(Map<String, Object> stats, String key) {
+        Object value = stats.get(key);
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private double getDouble(Map<String, Object> stats, String key) {
+        Object value = stats.get(key);
+        return value instanceof Number number ? number.doubleValue() : 0.0;
+    }
+}
