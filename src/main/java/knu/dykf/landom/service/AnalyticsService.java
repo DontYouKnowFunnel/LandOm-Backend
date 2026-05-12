@@ -6,6 +6,7 @@ import knu.dykf.landom.dto.response.ReplayResponse;
 import knu.dykf.landom.dto.response.SessionListResponse;
 import knu.dykf.landom.dto.response.SummaryResponse;
 import knu.dykf.landom.dto.response.TrendsResponse;
+import knu.dykf.landom.entity.FunnelAnalysisStatus;
 import knu.dykf.landom.entity.Project;
 import knu.dykf.landom.entity.Section;
 import knu.dykf.landom.exception.CustomException;
@@ -53,10 +54,16 @@ public class AnalyticsService {
                 .toList();
 
         sectionRepository.saveAll(newSections);
+        project.completeFunnelAnalysis();
     }
 
     public FunnelResponse getFunnelAnalytics(String username, Long id) {
         Project project = getProjectAndValidateOwnership(username, id);
+        FunnelResponse.Status status = mapStatus(project.getFunnelAnalysisStatus());
+        if (status == FunnelResponse.Status.NOT_CREATED) {
+            return new FunnelResponse(status, 0, List.of());
+        }
+
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
@@ -86,7 +93,16 @@ public class AnalyticsService {
             previousReachedCount = reachedCount;
         }
 
-        return new FunnelResponse(totalSessions, funnelDataList);
+        return new FunnelResponse(status, totalSessions, funnelDataList);
+    }
+
+    private FunnelResponse.Status mapStatus(FunnelAnalysisStatus status) {
+        return switch (status) {
+            case IN_PROGRESS -> FunnelResponse.Status.IN_PROGRESS;
+            case COMPLETED -> FunnelResponse.Status.COMPLETED;
+            case FAILED -> FunnelResponse.Status.FAILED;
+            default -> FunnelResponse.Status.NOT_CREATED;
+        };
     }
 
     public SessionListResponse getRecentSessions(String username, Long id, int limit) {

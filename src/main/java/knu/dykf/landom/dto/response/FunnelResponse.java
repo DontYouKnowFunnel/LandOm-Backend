@@ -5,12 +5,22 @@ import java.util.List;
 
 @Schema(description = "퍼널 분석 데이터 응답")
 public record FunnelResponse(
+        @Schema(description = "퍼널 분류 상태", example = "COMPLETED")
+        Status status,
+
         @Schema(description = "분석 기간 내 총 세션 수", example = "10248")
         long totalSessions,
 
         @Schema(description = "섹션별 퍼널 상세 데이터")
         List<FunnelData> funnelData
 ) {
+    public enum Status {
+        NOT_CREATED,
+        IN_PROGRESS,
+        COMPLETED,
+        FAILED
+    }
+
     @Schema(description = "섹션별 도달 및 이탈 통계")
     public record FunnelData(
             @Schema(description = "섹션 이름", example = "Hero Section")

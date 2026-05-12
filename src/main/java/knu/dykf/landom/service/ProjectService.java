@@ -28,6 +28,8 @@ public class ProjectService {
     private final CrawlingService crawlingService;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final FunnelAnalysisStatusService funnelAnalysisStatusService;
+    private final FunnelAnalysisTimeoutService funnelAnalysisTimeoutService;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -118,16 +120,20 @@ public class ProjectService {
             throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
         }
 
-        String targetUrl = project.getUrl();
-        String html = crawlingService.crawlLandingPage(targetUrl);
-        String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
-
-        RestTemplate restTemplate = new RestTemplate();
-        LlmRequest request = new LlmRequest(projectId, html);
+        funnelAnalysisStatusService.markInProgress(projectId);
+        funnelAnalysisTimeoutService.scheduleTimeout(projectId);
 
         try {
+            String targetUrl = project.getUrl();
+            String html = crawlingService.crawlLandingPage(targetUrl);
+            String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
+
+            RestTemplate restTemplate = new RestTemplate();
+            LlmRequest request = new LlmRequest(projectId, html);
+
             restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
         } catch (Exception e) {
+            funnelAnalysisStatusService.markNotCreated(projectId);
             throw new CustomException(ErrorCode.LLM_SERVER_ERROR);
         }
     }
