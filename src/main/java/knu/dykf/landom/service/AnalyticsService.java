@@ -75,8 +75,8 @@ public class AnalyticsService {
             Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
                     apiKey, section.getCssSelector());
 
-            long reachedCount = ((Number) stats.get("reached_count")).longValue();
-            double avgDurationSeconds = ((Number) stats.get("avg_duration")).doubleValue();
+            long reachedCount = getLong(stats, "reached_count");
+            double avgDurationSeconds = getDouble(stats, "avg_duration");
 
             double reachRate = totalSessions == 0 ? 0 : Math.round((double) reachedCount / totalSessions * 100.0) / 100.0;
             double dropRate = previousReachedCount == 0 ? 0 :
@@ -135,9 +135,9 @@ public class AnalyticsService {
         String lastSectionSelector = sections.get(sections.size() - 1).getCssSelector();
         Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, lastSectionSelector);
 
-        long totalSessions = ((Number) stats.get("total_sessions")).longValue();
-        long convertedSessions = ((Number) stats.get("converted_sessions")).longValue();
-        double avgDurationSeconds = ((Number) stats.get("avg_total_duration")).doubleValue();
+        long totalSessions = getLong(stats, "total_sessions");
+        long convertedSessions = getLong(stats, "converted_sessions");
+        double avgDurationSeconds = getDouble(stats, "avg_total_duration");
 
         double conversionRate = totalSessions == 0 ? 0 :
                 Math.round((double) convertedSessions / totalSessions * 1000.0) / 1000.0;
@@ -253,5 +253,15 @@ public class AnalyticsService {
 
     private String formatDuration(long seconds) {
         return String.format("%02d:%02d", seconds / 60, seconds % 60);
+    }
+
+    private long getLong(Map<String, Object> stats, String key) {
+        Object value = stats.get(key);
+        return value instanceof Number number ? number.longValue() : 0L;
+    }
+
+    private double getDouble(Map<String, Object> stats, String key) {
+        Object value = stats.get(key);
+        return value instanceof Number number ? number.doubleValue() : 0.0;
     }
 }

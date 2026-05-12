@@ -1,5 +1,8 @@
 package knu.dykf.landom.config;
 
+import knu.dykf.landom.exception.CustomException;
+import knu.dykf.landom.exception.ErrorCode;
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,7 +14,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,11 +37,12 @@ public class ClickHouseSchemaInitializer implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments args) throws IOException {
+    @SneakyThrows
+    public void run(ApplicationArguments args) {
         Resource resource = resourceLoader.getResource(schemaPath);
 
         if (!resource.exists()) {
-            throw new IllegalStateException("ClickHouse schema file not found: " + schemaPath);
+            throw new CustomException(ErrorCode.CLICKHOUSE_SCHEMA_FILE_NOT_FOUND);
         }
 
         String schemaSql = resource.getContentAsString(StandardCharsets.UTF_8);

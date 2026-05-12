@@ -1,6 +1,9 @@
 package knu.dykf.landom.repository;
 
 import knu.dykf.landom.dto.request.SdkEventRequest;
+import knu.dykf.landom.exception.CustomException;
+import knu.dykf.landom.exception.ErrorCode;
+import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -42,24 +45,21 @@ public class EventClickHouseRepository {
             VALUES (?, ?, ?, ?, ?)
         """;
 
-        List<Object[]> batchArgs = request.events().stream().map(event -> {
-            try {
-                return new Object[]{
+        List<Object[]> batchArgs = request.events().stream()
+                .map(event -> new Object[]{
                         request.sessionId(),
                         event.type(),
                         new Timestamp(event.timestamp()),
                         serializePayload(event),
                         event.cssSelector()
-                };
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).toList();
+                })
+                .toList();
 
         jdbcTemplate.batchUpdate(eventSql, batchArgs);
     }
 
-    private String serializePayload(SdkEventRequest.EventDetail event) throws Exception {
+    @SneakyThrows
+    private String serializePayload(SdkEventRequest.EventDetail event) {
         if ("replay".equals(event.type()) && isCompressedGzipPayload(event.payload())) {
             return decompressReplayPayload(event.payload());
         }
@@ -78,22 +78,30 @@ public class EventClickHouseRepository {
                 && payload.get("data") instanceof String;
     }
 
-    private String decompressReplayPayload(Map<String, Object> payload) throws Exception {
+    @SneakyThrows
+    private String decompressReplayPayload(Map<String, Object> payload) {
         String encodedData = (String) payload.get("data");
-        byte[] compressedBytes = Base64.getDecoder().decode(encodedData);
-
-        try (GZIPInputStream gzipInputStream =
-                     new GZIPInputStream(new ByteArrayInputStream(compressedBytes))) {
-            String json = new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
-            JsonNode restoredPayload = objectMapper.readTree(json);
-
-            JsonNode event = restoredPayload.get("event");
-            if (event == null || event.isNull()) {
-                throw new IllegalArgumentException("Decompressed replay payload does not contain rrweb event");
-            }
-
-            return objectMapper.writeValueAsString(restoredPayload);
+        if (!isBase64(encodedData)) {
+            throw new CustomException(ErrorCode.EVENT_PAYLOAD_INVALID);
         }
+
+        byte[] compressedBytes = Base64.getDecoder().decode(encodedData);
+        GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(compressedBytes));
+        String json = new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
+        JsonNode restoredPayload = objectMapper.readTree(json);
+
+        JsonNode event = restoredPayload.get("event");
+        if (event == null || event.isNull()) {
+            throw new CustomException(ErrorCode.EVENT_PAYLOAD_INVALID);
+        }
+
+        return objectMapper.writeValueAsString(restoredPayload);
+    }
+
+    private boolean isBase64(String encodedData) {
+        return encodedData != null
+                && encodedData.length() % 4 == 0
+                && encodedData.matches("^[A-Za-z0-9+/]*={0,2}$");
     }
 
     public long getTotalSessionCount(String apiKey) {
@@ -105,7 +113,8 @@ public class EventClickHouseRepository {
             )
             AND event_type != 'replay'
         """;
-        return jdbcTemplate.queryForObject(sql, Long.class, apiKey);
+        Long count = jdbcTemplate.queryForObject(sql, Long.class, apiKey);
+        return count == null ? 0L : count;
     }
 
     public Map<String, Object> getSectionStats(String apiKey, String cssSelector) {
@@ -231,17 +240,18 @@ public class EventClickHouseRepository {
     """;
 
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            try {
-                JsonNode payload = objectMapper.readTree(rs.getString("payload"));
-                JsonNode event = payload.get("event");
-                if (event == null || event.isNull()) {
-                    throw new IllegalStateException("Replay payload does not contain rrweb event");
-                }
-                return event;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            JsonNode payload = readReplayPayload(rs.getString("payload"));
+            JsonNode event = payload.get("event");
+            if (event == null || event.isNull()) {
+                throw new CustomException(ErrorCode.EVENT_QUERY_FAILED);
             }
+            return event;
         }, sessionId, apiKey);
+    }
+
+    @SneakyThrows
+    private JsonNode readReplayPayload(String payload) {
+        return objectMapper.readTree(payload);
     }
 
 }
