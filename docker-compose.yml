@@ -68,6 +68,10 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      CLICKHOUSE_SCHEMA_PATH: file:/app/init-db/init-clickhouse.sql
+    volumes:
+      - ./init-db:/app/init-db:ro
 
 volumes:
   mysql_data:
