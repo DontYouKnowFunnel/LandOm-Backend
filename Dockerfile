@@ -39,4 +39,5 @@ RUN apt-get update && \
     apt-get install -y google-chrome-stable
 EXPOSE 8080
 COPY --from=build /home/gradle/src/build/libs/*.jar app.jar
+COPY --from=build /home/gradle/src/init-db /backend/init-db
 ENTRYPOINT ["java", "-jar", "/app.jar"]
