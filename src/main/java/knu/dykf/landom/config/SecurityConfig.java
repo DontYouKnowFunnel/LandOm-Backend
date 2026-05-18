@@ -22,7 +22,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -56,7 +56,7 @@ public class SecurityConfig {
                                 writeErrorResponse(response, ErrorCode.HANDLE_ACCESS_DENIED))
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/events/**", "/index.html", "/landom-sdk.umd.js", "/api/v1/projects/{id}/analytics/section").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/events", "/api/v1/events/**", "/index.html", "/landom-sdk.umd.js", "/api/v1/projects/{id}/analytics/section").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
@@ -66,19 +66,27 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
+        CorsConfiguration eventConfiguration = new CorsConfiguration();
+        eventConfiguration.setAllowedOrigins(List.of("*"));
+        eventConfiguration.setAllowedMethods(List.of("POST", "OPTIONS"));
+        eventConfiguration.setAllowedHeaders(List.of("*"));
+        eventConfiguration.setAllowCredentials(false);
+        eventConfiguration.setMaxAge(3600L);
+
+        CorsConfiguration defaultConfiguration = new CorsConfiguration();
+        defaultConfiguration.setAllowedOrigins(List.of(
                 "http://localhost:8080",
                 "http://localhost:5173",// 로컬 개발 환경
                 serverUrl,  // 실제 운영 환경
                 frontendUrl
         ));
-        configuration.addAllowedMethod("*");        // 모든 HTTP Method 허용
-        configuration.addAllowedHeader("*");        // 모든 Header 허용
-        configuration.setAllowCredentials(true);    // 쿠키/인증정보 포함 허용
+        defaultConfiguration.addAllowedMethod("*");        // 모든 HTTP Method 허용
+        defaultConfiguration.addAllowedHeader("*");        // 모든 Header 허용
+        defaultConfiguration.setAllowCredentials(true);    // 쿠키/인증정보 포함 허용
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/api/v1/events", eventConfiguration);
+        source.registerCorsConfiguration("/**", defaultConfiguration);
         return source;
     }
 
