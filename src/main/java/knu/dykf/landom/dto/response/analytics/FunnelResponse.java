@@ -1,6 +1,8 @@
 package knu.dykf.landom.dto.response.analytics;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import knu.dykf.landom.entity.project.SectionName;
+
 import java.util.List;
 
 @Schema(description = "퍼널 분석 데이터 응답")
@@ -23,8 +25,8 @@ public record FunnelResponse(
 
     @Schema(description = "섹션별 도달 및 이탈 통계")
     public record FunnelData(
-            @Schema(description = "섹션 이름", example = "Hero Section")
-            String sectionName,
+            @Schema(description = "섹션 이름", example = "HERO", implementation = SectionName.class)
+            SectionName sectionName,
 
             @Schema(description = "해당 섹션에 도달한 고유 세션 수", example = "10248")
             long reachedUserCount,

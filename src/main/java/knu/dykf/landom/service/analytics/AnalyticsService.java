@@ -207,7 +207,7 @@ public class AnalyticsService {
         if (raw.lastCssSelector() != null && !sections.isEmpty()) {
             for (Section section : sections) {
                 if (raw.lastCssSelector().startsWith(section.getCssSelector())) {
-                    lastSectionName = section.getName();
+                    lastSectionName = section.getName().name();
                     if (section.getStepOrder() == sections.size()) {
                         isConverted = true;
                     }

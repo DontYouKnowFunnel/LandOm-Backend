@@ -21,8 +21,9 @@ public class Section {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String name;
+    private SectionName name;
 
     @Column(nullable = false)
     private String cssSelector;
@@ -31,7 +32,7 @@ public class Section {
     private int stepOrder; // 퍼널 순서 (1, 2, 3...)
 
     @Builder
-    public Section(Project project, String name, String cssSelector, int stepOrder) {
+    public Section(Project project, SectionName name, String cssSelector, int stepOrder) {
         this.project = project;
         this.name = name;
         this.cssSelector = cssSelector;
