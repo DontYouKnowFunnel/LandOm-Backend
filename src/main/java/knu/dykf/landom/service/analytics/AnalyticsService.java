@@ -218,7 +218,7 @@ public class AnalyticsService {
         }
 
         String status = "DROP";
-        if (raw.hasCtaClick()) {
+        if (raw.hasConversion()) {
             status = "CONVERTED";
         } else if (raw.hasExit()) {
             status = "DROP";
