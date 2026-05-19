@@ -73,12 +73,11 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration eventConfiguration = new CorsConfiguration();
-        eventConfiguration.setAllowedOrigins(List.of("*"));
-        eventConfiguration.setAllowedMethods(List.of("*"));
-        eventConfiguration.setAllowedHeaders(List.of("*"));
-        eventConfiguration.setAllowCredentials(false);
-        eventConfiguration.setMaxAge(3600L);
+        CorsConfiguration events = new CorsConfiguration();
+        events.setAllowedOrigins(List.of("*"));
+        events.setAllowedMethods(List.of("*"));
+        events.setAllowedHeaders(List.of("*"));
+        events.setAllowCredentials(false);
 
         CorsConfiguration defaults = new CorsConfiguration();
         defaults.setAllowedOrigins(resolveAllowedOrigins());
