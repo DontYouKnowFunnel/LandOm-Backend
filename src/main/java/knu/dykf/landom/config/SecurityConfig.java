@@ -52,18 +52,23 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(e -> e
-                        .authenticationEntryPoint((req, res, ex) -> writeErrorResponse(res, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((req, res, ex) -> writeErrorResponse(res, ErrorCode.HANDLE_ACCESS_DENIED))
+                        .authenticationEntryPoint((req, res, ex) ->
+                                writeErrorResponse(res, ErrorCode.UNAUTHORIZED))
+                        .accessDeniedHandler((req, res, ex) ->
+                                writeErrorResponse(res, ErrorCode.HANDLE_ACCESS_DENIED))
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                        .requestMatchers("/api/v1/events/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/**",
                                 "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
                                 "/index.html",
                                 "/landom-sdk.umd.js",
-                                "/api/v1/projects/{id}/analytics/section"
+                                "/api/v1/projects/*/analytics/section"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -74,10 +79,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration events = new CorsConfiguration();
-        events.setAllowedOrigins(List.of("*"));
-        events.setAllowedMethods(List.of("*"));
-        events.setAllowedHeaders(List.of("*"));
-        events.setAllowCredentials(false);
+
+        events.setAllowedOriginPatterns(List.of("*"));
+        events.setAllowedMethods(List.of("POST", "OPTIONS"));
+        events.setAllowedHeaders(List.of("Content-Type"));
+        events.setAllowCredentials(true);
 
         CorsConfiguration defaults = new CorsConfiguration();
         defaults.setAllowedOrigins(resolveAllowedOrigins());
