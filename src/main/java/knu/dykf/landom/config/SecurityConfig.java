@@ -82,8 +82,9 @@ public class SecurityConfig {
 
         events.setAllowedOriginPatterns(List.of("*"));
         events.setAllowedMethods(List.of("POST", "OPTIONS"));
-        events.setAllowedHeaders(List.of("Content-Type"));
+        events.setAllowedHeaders(List.of("Content-Type", "X-Project-Key"));
         events.setAllowCredentials(true);
+        events.setAllowPrivateNetwork(true);
 
         CorsConfiguration defaults = new CorsConfiguration();
         defaults.setAllowedOrigins(resolveAllowedOrigins());
