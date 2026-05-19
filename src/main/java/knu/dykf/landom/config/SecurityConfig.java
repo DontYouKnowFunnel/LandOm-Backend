@@ -68,7 +68,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration eventConfiguration = new CorsConfiguration();
         eventConfiguration.setAllowedOrigins(List.of("*"));
-        eventConfiguration.setAllowedMethods(List.of("POST", "OPTIONS"));
+        eventConfiguration.setAllowedMethods(List.of("*"));
         eventConfiguration.setAllowedHeaders(List.of("*"));
         eventConfiguration.setAllowCredentials(false);
         eventConfiguration.setMaxAge(3600L);
