@@ -9,6 +9,7 @@ import knu.dykf.landom.dto.response.analytics.TrendsResponse;
 import knu.dykf.landom.entity.project.FunnelAnalysisStatus;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
+import knu.dykf.landom.entity.project.SectionName;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
@@ -110,8 +111,9 @@ public class AnalyticsService {
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+        String ctaSectionSelector = findCtaSectionSelector(sections);
         List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
-                eventClickHouseRepository.getRecentSessions(apiKey, limit);
+                eventClickHouseRepository.getRecentSessions(apiKey, ctaSectionSelector, limit);
 
         List<SessionListResponse.SessionDto> dtoList = rawSessions.stream()
                 .map(raw -> mapToDto(raw, sections))
@@ -131,9 +133,8 @@ public class AnalyticsService {
             return new SummaryResponse(0, 0.0, "00:00");
         }
 
-        // 마지막 단계의 셀렉터를 기준으로 전환 여부 판단
-        String lastSectionSelector = sections.get(sections.size() - 1).getCssSelector();
-        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, lastSectionSelector);
+        String ctaSectionSelector = findCtaSectionSelector(sections);
+        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, ctaSectionSelector);
 
         long totalSessions = getLong(stats, "total_sessions");
         long convertedSessions = getLong(stats, "converted_sessions");
@@ -154,10 +155,10 @@ public class AnalyticsService {
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
-        String lastSelector = sections.isEmpty() ? "" : sections.getLast().getCssSelector();
+        String ctaSectionSelector = findCtaSectionSelector(sections);
 
         List<EventClickHouseRepository.TrendRawDto> rawTrends =
-                eventClickHouseRepository.getWeeklyTrends(apiKey, lastSelector);
+                eventClickHouseRepository.getWeeklyTrends(apiKey, ctaSectionSelector);
 
         List<TrendsResponse.TrendUnit<Integer>> scores = new ArrayList<>();
         List<TrendsResponse.TrendUnit<Double>> conversionRates = new ArrayList<>();
@@ -201,22 +202,20 @@ public class AnalyticsService {
         String duration = formatDuration(raw.durationSeconds());
 
         String lastSectionName = "Unknown";
-        String status = "DROP";
-        boolean isConverted = false;
 
         if (raw.lastCssSelector() != null && !sections.isEmpty()) {
             for (Section section : sections) {
                 if (raw.lastCssSelector().startsWith(section.getCssSelector())) {
                     lastSectionName = section.getName().name();
-                    if (section.getStepOrder() == sections.size()) {
-                        isConverted = true;
-                    }
                 }
             }
         }
 
-        if (isConverted) {
+        String status = "DROP";
+        if (raw.hasCtaClick()) {
             status = "CONVERTED";
+        } else if (raw.hasExit()) {
+            status = "DROP";
         } else if (raw.endTime().isAfter(LocalDateTime.now().minusMinutes(10))) {
             status = "EXPLORING";
         }
@@ -232,6 +231,14 @@ public class AnalyticsService {
                 status,
                 replayUrl
         );
+    }
+
+    private String findCtaSectionSelector(List<Section> sections) {
+        return sections.stream()
+                .filter(section -> section.getName() == SectionName.CTA_SECTION)
+                .map(Section::getCssSelector)
+                .findFirst()
+                .orElse("");
     }
 
     private String parseDevice(String userAgent) {
