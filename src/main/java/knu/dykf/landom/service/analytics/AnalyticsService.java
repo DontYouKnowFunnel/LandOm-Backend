@@ -135,7 +135,7 @@ public class AnalyticsService {
 
         // 섹션이 설정되지 않은 경우 기본값 반환
         if (sections.isEmpty()) {
-            return new SummaryResponse(0, 0.0, "00:00");
+            return new SummaryResponse(0, 0, 0.0, "00:00");
         }
 
         String ctaSectionSelector = findCtaSectionSelector(sections);
@@ -150,6 +150,7 @@ public class AnalyticsService {
 
         return new SummaryResponse(
                 totalSessions,
+                convertedSessions,
                 conversionRate,
                 formatDuration((long) avgDurationSeconds)
         );
