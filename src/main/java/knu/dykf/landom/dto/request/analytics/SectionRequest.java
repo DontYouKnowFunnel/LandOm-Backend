@@ -35,7 +35,6 @@ public record SectionRequest(
                             "PRICING",
                             "FAQ",
                             "CTA_SECTION",
-                            "CTA",
                             "GENERIC"
                     }
             )
