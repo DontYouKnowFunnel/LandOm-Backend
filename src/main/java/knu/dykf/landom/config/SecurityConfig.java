@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -23,6 +24,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 @Configuration
 @EnableWebSecurity
@@ -31,10 +33,10 @@ public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
 
-    @Value("${server.url}")
+    @Value("${server.url:}")
     private String serverUrl;
 
-    @Value("${frontend.url}")
+    @Value("${frontend.url:}")
     private String frontendUrl;
 
     @Bean
@@ -45,49 +47,61 @@ public class SecurityConfig {
     @Bean
     @SneakyThrows
     public SecurityFilterChain filterChain(HttpSecurity http) {
-        http
+        return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) ->
-                                writeErrorResponse(response, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, accessDeniedException) ->
-                                writeErrorResponse(response, ErrorCode.HANDLE_ACCESS_DENIED))
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((req, res, ex) -> writeErrorResponse(res, ErrorCode.UNAUTHORIZED))
+                        .accessDeniedHandler((req, res, ex) -> writeErrorResponse(res, ErrorCode.HANDLE_ACCESS_DENIED))
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/events", "/api/v1/events/**", "/index.html", "/landom-sdk.umd.js", "/api/v1/projects/{id}/analytics/section").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/**",
+                                "/swagger-ui/**",
+                                "/index.html",
+                                "/landom-sdk.umd.js",
+                                "/api/v1/projects/{id}/analytics/section"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration eventConfiguration = new CorsConfiguration();
-        eventConfiguration.setAllowedOrigins(List.of("*"));
-        eventConfiguration.setAllowedMethods(List.of("POST", "OPTIONS"));
-        eventConfiguration.setAllowedHeaders(List.of("*"));
-        eventConfiguration.setAllowCredentials(false);
-        eventConfiguration.setMaxAge(3600L);
+        CorsConfiguration events = new CorsConfiguration();
+        events.setAllowedOriginPatterns(List.of("*"));
+        events.setAllowedMethods(List.of("POST", "OPTIONS"));
+        events.setAllowedHeaders(List.of("*"));
+        events.setAllowCredentials(false);
 
-        CorsConfiguration defaultConfiguration = new CorsConfiguration();
-        defaultConfiguration.setAllowedOrigins(List.of(
-                "http://localhost:8080",
-                "http://localhost:5173",// 로컬 개발 환경
-                serverUrl,  // 실제 운영 환경
-                frontendUrl
-        ));
-        defaultConfiguration.addAllowedMethod("*");        // 모든 HTTP Method 허용
-        defaultConfiguration.addAllowedHeader("*");        // 모든 Header 허용
-        defaultConfiguration.setAllowCredentials(true);    // 쿠키/인증정보 포함 허용
+        CorsConfiguration defaults = new CorsConfiguration();
+        defaults.setAllowedOrigins(resolveAllowedOrigins());
+        defaults.setAllowedMethods(List.of("*"));
+        defaults.setAllowedHeaders(List.of("*"));
+        defaults.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/v1/events", eventConfiguration);
-        source.registerCorsConfiguration("/**", defaultConfiguration);
+        source.registerCorsConfiguration("/api/v1/events", events);
+        source.registerCorsConfiguration("/api/v1/events/**", events);
+        source.registerCorsConfiguration("/**", defaults);
         return source;
+    }
+
+    private List<String> resolveAllowedOrigins() {
+        return Stream.of(
+                        "http://localhost:8080",
+                        "http://localhost:5173",
+                        frontendUrl,
+                        serverUrl
+                )
+                .filter(origin -> origin != null && !origin.isBlank())
+                .distinct()
+                .toList();
     }
 
     @SneakyThrows
