@@ -77,8 +77,7 @@ public class SecurityConfig {
         events.setAllowedOrigins(List.of("*"));
         events.setAllowedMethods(List.of("*"));
         events.setAllowedHeaders(List.of("*"));
-        events.setAllowCredentials(true);
-        events.setAllowPrivateNetwork(true);
+        events.setAllowCredentials(false);
 
         CorsConfiguration defaults = new CorsConfiguration();
         defaults.setAllowedOrigins(resolveAllowedOrigins());
