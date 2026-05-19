@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -117,7 +118,16 @@ public class EventClickHouseRepository {
         return count == null ? 0L : count;
     }
 
-    public Map<String, Object> getSectionStats(String apiKey, String cssSelector) {
+    public Map<String, Object> getSectionStats(String apiKey, List<String> reachedSectionSelectors) {
+        if (reachedSectionSelectors.isEmpty()) {
+            return Map.of("reached_count", 0L, "avg_duration", 0.0);
+        }
+
+        String selectorConditions = reachedSectionSelectors.stream()
+                .map(selector -> "ifNull(css_selector, '') LIKE concat(?, '%')")
+                .reduce((left, right) -> left + " OR " + right)
+                .orElse("false");
+
         String sql = """
             SELECT 
                 count(DISTINCT session_id) AS reached_count,
@@ -131,37 +141,42 @@ public class EventClickHouseRepository {
                     SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
                 )
                 AND event_type != 'replay'
-                AND css_selector LIKE concat(?, '%')
+                AND (%s)
                 GROUP BY session_id
             )
-        """;
-        return jdbcTemplate.queryForMap(sql, apiKey, cssSelector);
+        """.formatted(selectorConditions);
+
+        List<Object> params = new ArrayList<>();
+        params.add(apiKey);
+        params.addAll(reachedSectionSelectors);
+
+        return jdbcTemplate.queryForMap(sql, params.toArray());
     }
 
-    public Map<String, Object> getSummaryStats(String apiKey, String lastSectionSelector) {
+    public Map<String, Object> getSummaryStats(String apiKey, String ctaSectionSelector) {
         String sql = """
         SELECT 
             count(*) AS total_sessions,
             avg(duration_seconds) AS avg_total_duration,
             countIf(is_converted > 0) AS converted_sessions
         FROM (
-            SELECT 
-                session_id,
-                dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds,
-                countIf(css_selector LIKE concat(?, '%')) AS is_converted
-            FROM event_details
-            WHERE session_id IN (
-                SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
-            )
-            AND event_type != 'replay'
+                SELECT 
+                    session_id,
+                    dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds,
+                    countIf(event_type = 'click' AND ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) AS is_converted
+                FROM event_details
+                WHERE session_id IN (
+                    SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+                )
+                AND event_type != 'replay'
             GROUP BY session_id
         )
     """;
 
-        return jdbcTemplate.queryForMap(sql, lastSectionSelector, apiKey);
+        return jdbcTemplate.queryForMap(sql, ctaSectionSelector, ctaSectionSelector, apiKey);
     }
 
-    public List<TrendRawDto> getWeeklyTrends(String apiKey, String lastSectionSelector) {
+    public List<TrendRawDto> getWeeklyTrends(String apiKey, String ctaSectionSelector) {
         String sql = """
         SELECT 
             concat(toString(toYear(timestamp)), '-', 
@@ -171,7 +186,7 @@ public class EventClickHouseRepository {
             round(count(*) / count(DISTINCT session_id), 0) AS avg_score,
             -- 전환율 계산용 데이터
             count(DISTINCT session_id) AS total_sessions,
-            countIf(css_selector LIKE concat(?, '%')) AS converted_sessions
+            uniqExactIf(session_id, event_type = 'click' AND ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) AS converted_sessions
         FROM event_details
         WHERE session_id IN (
             SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
@@ -186,12 +201,12 @@ public class EventClickHouseRepository {
                 rs.getInt("avg_score"),
                 rs.getLong("total_sessions"),
                 rs.getLong("converted_sessions")
-        ), lastSectionSelector, apiKey);
+        ), ctaSectionSelector, ctaSectionSelector, apiKey);
     }
 
     public record TrendRawDto(String period, int score, long totalSessions, long convertedSessions) {}
 
-    public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
+    public List<SessionSummaryDto> getRecentSessions(String apiKey, String ctaSectionSelector, int limit) {
         String sql = """
         SELECT 
             s.session_id,
@@ -199,7 +214,9 @@ public class EventClickHouseRepository {
             min(d.timestamp) as start_time,
             max(d.timestamp) as end_time,
             dateDiff('second', min(d.timestamp), max(d.timestamp)) as duration_seconds,
-            argMax(d.css_selector, d.timestamp) as last_selector
+            argMax(d.css_selector, d.timestamp) as last_selector,
+            countIf(d.event_type = 'exit') > 0 as has_exit,
+            countIf(d.event_type = 'click' AND ? != '' AND ifNull(d.css_selector, '') LIKE concat(?, '%')) > 0 as has_cta_click
         FROM (SELECT * FROM event_sessions FINAL WHERE api_key = ?) AS s
         JOIN event_details AS d ON s.session_id = d.session_id
         WHERE d.event_type != 'replay'
@@ -214,8 +231,10 @@ public class EventClickHouseRepository {
                 rs.getTimestamp("start_time").toLocalDateTime(),
                 rs.getTimestamp("end_time").toLocalDateTime(),
                 rs.getLong("duration_seconds"),
-                rs.getString("last_selector")
-        ), apiKey, limit);
+                rs.getString("last_selector"),
+                rs.getBoolean("has_exit"),
+                rs.getBoolean("has_cta_click")
+        ), ctaSectionSelector, ctaSectionSelector, apiKey, limit);
     }
 
     public record SessionSummaryDto(
@@ -224,7 +243,9 @@ public class EventClickHouseRepository {
             LocalDateTime startTime,
             LocalDateTime endTime,
             long durationSeconds,
-            String lastCssSelector
+            String lastCssSelector,
+            boolean hasExit,
+            boolean hasCtaClick
     ) {}
 
     public List<JsonNode> getReplayEvents(String apiKey, String sessionId) {
