@@ -7,6 +7,9 @@ public record SummaryResponse(
         @Schema(description = "전체 세션 수", example = "58912")
         long sessionCount,
 
+        @Schema(description = "전환된 세션 수", example = "28412")
+        long convertedCount,
+
         @Schema(description = "전체 전환율 (0.0 ~ 1.0)", example = "0.482")
         double conversionRate,
 
