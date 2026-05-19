@@ -72,9 +72,14 @@ public class AnalyticsService {
         List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
         long previousReachedCount = totalSessions;
 
-        for (Section section : sections) {
+        for (int index = 0; index < sections.size(); index++) {
+            Section section = sections.get(index);
+            List<String> reachedSectionSelectors = sections.subList(index, sections.size()).stream()
+                    .map(Section::getCssSelector)
+                    .toList();
+
             Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
-                    apiKey, section.getCssSelector());
+                    apiKey, reachedSectionSelectors);
 
             long reachedCount = getLong(stats, "reached_count");
             double avgDurationSeconds = getDouble(stats, "avg_duration");

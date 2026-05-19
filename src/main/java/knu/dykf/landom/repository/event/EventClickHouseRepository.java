@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -117,7 +118,16 @@ public class EventClickHouseRepository {
         return count == null ? 0L : count;
     }
 
-    public Map<String, Object> getSectionStats(String apiKey, String cssSelector) {
+    public Map<String, Object> getSectionStats(String apiKey, List<String> reachedSectionSelectors) {
+        if (reachedSectionSelectors.isEmpty()) {
+            return Map.of("reached_count", 0L, "avg_duration", 0.0);
+        }
+
+        String selectorConditions = reachedSectionSelectors.stream()
+                .map(selector -> "ifNull(css_selector, '') LIKE concat(?, '%')")
+                .reduce((left, right) -> left + " OR " + right)
+                .orElse("false");
+
         String sql = """
             SELECT 
                 count(DISTINCT session_id) AS reached_count,
@@ -131,11 +141,16 @@ public class EventClickHouseRepository {
                     SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
                 )
                 AND event_type != 'replay'
-                AND css_selector LIKE concat(?, '%')
+                AND (%s)
                 GROUP BY session_id
             )
-        """;
-        return jdbcTemplate.queryForMap(sql, apiKey, cssSelector);
+        """.formatted(selectorConditions);
+
+        List<Object> params = new ArrayList<>();
+        params.add(apiKey);
+        params.addAll(reachedSectionSelectors);
+
+        return jdbcTemplate.queryForMap(sql, params.toArray());
     }
 
     public Map<String, Object> getSummaryStats(String apiKey, String ctaSectionSelector) {
