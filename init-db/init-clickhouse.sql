@@ -4,9 +4,17 @@ CREATE TABLE IF NOT EXISTS event_sessions (
     session_id String,
     user_agent String,
     url String,
-    api_key String
+    api_key String,
+    status String DEFAULT 'EXPLORING',
+    status_updated_at DateTime64(3, 'Asia/Seoul') DEFAULT now64(3)
 ) ENGINE = ReplacingMergeTree()
     ORDER BY (api_key, session_id);
+
+ALTER TABLE event_sessions
+    ADD COLUMN IF NOT EXISTS status String DEFAULT 'EXPLORING';
+
+ALTER TABLE event_sessions
+    ADD COLUMN IF NOT EXISTS status_updated_at DateTime64(3, 'Asia/Seoul') DEFAULT now64(3);
 
 -- 2. 이벤트 상세 정보 테이블 (MergeTree 사용)
 -- rrweb 세션 리플레이도 event_type = 'replay', payload = rrweb event JSON 문자열로 함께 저장합니다.
