@@ -225,7 +225,7 @@ public class EventClickHouseRepository {
             String sectionSelector,
             LocalDateTime crawledAt
     ) {
-        Timestamp crawledTimestamp = Timestamp.valueOf(crawledAt);
+        String crawledAtParam = crawledAt.toString();
 
         String sessionSql = """
                 SELECT
@@ -243,7 +243,7 @@ public class EventClickHouseRepository {
                     WHERE api_key = ?
                     GROUP BY session_id
                 ) AS s ON d.session_id = s.session_id
-                WHERE d.timestamp >= ?
+                WHERE d.timestamp >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
                 AND d.event_type != 'replay'
                 AND s.status = 'DROP'
                 AND %s
@@ -261,7 +261,7 @@ public class EventClickHouseRepository {
                         rs.getLong("duration_seconds")
                 ),
                 apiKey,
-                crawledTimestamp,
+                crawledAtParam,
                 sectionSelector,
                 sectionSelector,
                 SECTION_BEHAVIOR_SESSION_LIMIT
@@ -272,7 +272,11 @@ public class EventClickHouseRepository {
         }
 
         String scrollWindowConditions = sessionWindows.stream()
-                .map(session -> "(session_id = ? AND timestamp BETWEEN ? AND ?)")
+                .map(session -> """
+                        (session_id = ?
+                        AND timestamp BETWEEN parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
+                        AND parseDateTime64BestEffort(?, 3, 'Asia/Seoul'))
+                        """)
                 .reduce((left, right) -> left + " OR " + right)
                 .orElseThrow();
 
@@ -283,7 +287,7 @@ public class EventClickHouseRepository {
                     timestamp,
                     payload
                 FROM event_details
-                WHERE timestamp >= ?
+                WHERE timestamp >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
                 AND event_type != 'replay'
                 AND session_id IN (%s)
                 AND (
@@ -301,7 +305,7 @@ public class EventClickHouseRepository {
         );
 
         List<Object> eventParams = new ArrayList<>();
-        eventParams.add(crawledTimestamp);
+        eventParams.add(crawledAtParam);
         sessionWindows.stream()
                 .map(SectionSessionWindow::sessionId)
                 .forEach(eventParams::add);
@@ -309,8 +313,8 @@ public class EventClickHouseRepository {
         eventParams.add(sectionSelector);
         sessionWindows.forEach(session -> {
             eventParams.add(session.sessionId());
-            eventParams.add(Timestamp.valueOf(session.firstEventAt()));
-            eventParams.add(Timestamp.valueOf(session.lastEventAt()));
+            eventParams.add(session.firstEventAt().toString());
+            eventParams.add(session.lastEventAt().toString());
         });
 
         Map<String, List<SectionBehaviorEvent>> eventsBySession = jdbcTemplate.query(
