@@ -32,6 +32,7 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final FunnelAnalysisStatusService funnelAnalysisStatusService;
     private final FunnelAnalysisTimeoutService funnelAnalysisTimeoutService;
+    private final LandingPageSnapshotService landingPageSnapshotService;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -127,6 +128,8 @@ public class ProjectService {
 
         String targetUrl = project.getUrl();
         String html = crawlingService.crawlLandingPage(targetUrl);
+        landingPageSnapshotService.saveSnapshot(projectId, html);
+
         String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
 
         RestTemplate restTemplate = new RestTemplate();
