@@ -1,6 +1,7 @@
 package knu.dykf.landom.service.project;
 
 import knu.dykf.landom.dto.request.project.LlmOptimizationRequest;
+import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
@@ -66,6 +67,18 @@ public class ProjectOptimizationService {
 
         RestTemplate restTemplate = new RestTemplate();
         restTemplate.postForEntity(llmServerUrl + "/api/v1/funnels/optimize", llmRequest, Void.class);
+    }
+
+    @Transactional
+    public void updateOptimizationPlan(Long projectId, Long sectionId, OptimizationPlanRequest request) {
+        if (!projectId.equals(request.projectId()) || !sectionId.equals(request.sectionId())) {
+            throw new CustomException(ErrorCode.OPTIMIZATION_TARGET_MISMATCH);
+        }
+
+        Section section = sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+
+        section.updateOptimizationPlan(request.optimizationPlan());
     }
 
     private String extractSectionHtml(String html, String cssSelector) {

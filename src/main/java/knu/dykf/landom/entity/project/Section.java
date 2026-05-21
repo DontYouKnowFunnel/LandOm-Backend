@@ -31,6 +31,14 @@ public class Section {
     @Column(nullable = false)
     private int stepOrder; // 퍼널 순서 (1, 2, 3...)
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String optimizationPlan;
+
+    public void updateOptimizationPlan(String optimizationPlan) {
+        this.optimizationPlan = optimizationPlan;
+    }
+
     @Builder
     public Section(Project project, SectionName name, String cssSelector, int stepOrder) {
         this.project = project;

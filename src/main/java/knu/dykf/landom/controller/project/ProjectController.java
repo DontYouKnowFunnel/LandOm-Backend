@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.dto.request.project.ProjectCreateRequest;
 import knu.dykf.landom.dto.request.project.ProjectUpdateRequest;
@@ -98,6 +99,18 @@ public class ProjectController {
             @Valid @RequestBody OptimizationRequest request) {
 
         projectOptimizationService.requestOptimization(userDetails.getUsername(), id, sectionId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "섹션 HTML 개선안 저장", description = "LLM 서버가 생성한 섹션별 HTML 개선안을 저장합니다.")
+    @ApiResponse(responseCode = "204", description = "개선안 저장 성공")
+    @PatchMapping("/{id}/optimizations/{sectionId}")
+    public ResponseEntity<Void> updateSectionOptimizationPlan(
+            @PathVariable Long id,
+            @PathVariable Long sectionId,
+            @Valid @RequestBody OptimizationPlanRequest request) {
+
+        projectOptimizationService.updateOptimizationPlan(id, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 }
