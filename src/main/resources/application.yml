@@ -23,8 +23,9 @@ clickhouse:
   host: ${CLICKHOUSE_HOST}
   port: ${CLICKHOUSE_PORT}
   database: ${CLICKHOUSE_DATABASE}
-  username: ${CLICKHOUSE_USERNAME}
+  username: ${CLICKHOUSE_USER}
   password: ${CLICKHOUSE_PASSWORD}
+  schema-path: ${CLICKHOUSE_SCHEMA_PATH:file:init-db/init-clickhouse.sql}
 
 jwt:
   secret:
@@ -32,3 +33,10 @@ jwt:
 
 server:
   url: ${SERVER_URL}
+
+frontend:
+  url: ${FRONTEND_URL}
+
+llm:
+  server:
+    url: ${LLM_SERVER_URL}
