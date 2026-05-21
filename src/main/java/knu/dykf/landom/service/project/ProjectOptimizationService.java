@@ -34,30 +34,16 @@ public class ProjectOptimizationService {
 
     @Transactional(readOnly = true)
     public OptimizationPlanResponse getOptimizationPlan(String username, Long projectId, Long sectionId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
-
-        if (!project.getUser().getUsername().equals(username)) {
-            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
-        }
-
-        Section section = sectionRepository.findByIdAndProjectId(sectionId, projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+        getProjectAndValidateOwnership(username, projectId);
+        Section section = getSectionInProject(projectId, sectionId);
 
         return new OptimizationPlanResponse(section.getOptimizationPlan());
     }
 
     @Transactional(readOnly = true)
     public void requestOptimization(String username, Long projectId, Long sectionId, OptimizationRequest request) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
-
-        if (!project.getUser().getUsername().equals(username)) {
-            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
-        }
-
-        Section section = sectionRepository.findByIdAndProjectId(sectionId, projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+        Project project = getProjectAndValidateOwnership(username, projectId);
+        Section section = getSectionInProject(projectId, sectionId);
 
         if (project.getLandingPageHtml() == null
                 || project.getLandingPageHtml().isBlank()
@@ -91,10 +77,25 @@ public class ProjectOptimizationService {
             throw new CustomException(ErrorCode.OPTIMIZATION_TARGET_MISMATCH);
         }
 
-        Section section = sectionRepository.findByIdAndProjectId(sectionId, projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+        Section section = getSectionInProject(projectId, sectionId);
 
         section.updateOptimizationPlan(request.optimizationPlan());
+    }
+
+    private Project getProjectAndValidateOwnership(String username, Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getUser().getUsername().equals(username)) {
+            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        return project;
+    }
+
+    private Section getSectionInProject(Long projectId, Long sectionId) {
+        return sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
     }
 
     private String extractSectionHtml(String html, String cssSelector) {
