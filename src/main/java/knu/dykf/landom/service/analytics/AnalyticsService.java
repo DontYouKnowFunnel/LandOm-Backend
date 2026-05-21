@@ -9,7 +9,6 @@ import knu.dykf.landom.dto.response.analytics.TrendsResponse;
 import knu.dykf.landom.entity.project.FunnelAnalysisStatus;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
-import knu.dykf.landom.entity.project.SectionName;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -116,9 +114,8 @@ public class AnalyticsService {
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
-        String ctaSectionSelector = findCtaSectionSelector(sections);
         List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
-                eventClickHouseRepository.getRecentSessions(apiKey, ctaSectionSelector, limit);
+                eventClickHouseRepository.getRecentSessions(apiKey, limit);
 
         List<SessionListResponse.SessionDto> dtoList = rawSessions.stream()
                 .map(raw -> mapToDto(raw, sections))
@@ -138,8 +135,7 @@ public class AnalyticsService {
             return new SummaryResponse(0, 0, 0.0, "00:00");
         }
 
-        String ctaSectionSelector = findCtaSectionSelector(sections);
-        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, ctaSectionSelector);
+        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey);
 
         long totalSessions = getLong(stats, "total_sessions");
         long convertedSessions = getLong(stats, "converted_sessions");
@@ -160,11 +156,8 @@ public class AnalyticsService {
 
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
-        String ctaSectionSelector = findCtaSectionSelector(sections);
-
         List<EventClickHouseRepository.TrendRawDto> rawTrends =
-                eventClickHouseRepository.getWeeklyTrends(apiKey, ctaSectionSelector);
+                eventClickHouseRepository.getWeeklyTrends(apiKey);
 
         List<TrendsResponse.TrendUnit<Integer>> scores = new ArrayList<>();
         List<TrendsResponse.TrendUnit<Double>> conversionRates = new ArrayList<>();
@@ -217,15 +210,6 @@ public class AnalyticsService {
             }
         }
 
-        String status = "DROP";
-        if (raw.hasConversion()) {
-            status = "CONVERTED";
-        } else if (raw.hasExit()) {
-            status = "DROP";
-        } else if (raw.endTime().isAfter(LocalDateTime.now().minusMinutes(10))) {
-            status = "EXPLORING";
-        }
-
         String replayUrl = "/replays/" + raw.sessionId();
 
         return new SessionListResponse.SessionDto(
@@ -234,17 +218,9 @@ public class AnalyticsService {
                 device,
                 lastSectionName,
                 duration,
-                status,
+                raw.status(),
                 replayUrl
         );
-    }
-
-    private String findCtaSectionSelector(List<Section> sections) {
-        return sections.stream()
-                .filter(section -> section.getName() == SectionName.CTA_SECTION)
-                .map(Section::getCssSelector)
-                .findFirst()
-                .orElse("");
     }
 
     private String parseDevice(String userAgent) {
