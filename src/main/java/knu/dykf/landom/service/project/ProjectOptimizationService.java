@@ -3,6 +3,7 @@ package knu.dykf.landom.service.project;
 import knu.dykf.landom.dto.request.project.LlmOptimizationRequest;
 import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
+import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
 import knu.dykf.landom.exception.CustomException;
@@ -30,6 +31,21 @@ public class ProjectOptimizationService {
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
+
+    @Transactional(readOnly = true)
+    public OptimizationPlanResponse getOptimizationPlan(String username, Long projectId, Long sectionId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
+
+        if (!project.getUser().getUsername().equals(username)) {
+            throw new CustomException(ErrorCode.HANDLE_ACCESS_DENIED);
+        }
+
+        Section section = sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+
+        return new OptimizationPlanResponse(section.getOptimizationPlan());
+    }
 
     @Transactional(readOnly = true)
     public void requestOptimization(String username, Long projectId, Long sectionId, OptimizationRequest request) {
