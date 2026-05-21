@@ -320,6 +320,35 @@ public class EventClickHouseRepository {
             String status
     ) {}
 
+    public void markInactiveExploringSessionsAsDrop() {
+        String sql = """
+            INSERT INTO event_sessions (session_id, user_agent, url, api_key, status, status_updated_at)
+            SELECT
+                session_id,
+                user_agent,
+                url,
+                api_key,
+                'DROP' AS status,
+                now64(3) AS status_updated_at
+            FROM (
+                SELECT
+                    s.session_id AS session_id,
+                    s.api_key AS api_key,
+                    argMax(s.user_agent, s.status_updated_at) AS user_agent,
+                    argMax(s.url, s.status_updated_at) AS url,
+                    argMax(s.status, s.status_updated_at) AS status,
+                    max(d.timestamp) AS last_event_time
+                FROM event_sessions AS s
+                JOIN event_details AS d ON s.session_id = d.session_id
+                GROUP BY s.api_key, s.session_id
+                HAVING status = 'EXPLORING'
+                AND last_event_time < subtractMinutes(now64(3), 10)
+            )
+        """;
+
+        jdbcTemplate.execute(sql);
+    }
+
     public List<JsonNode> getReplayEvents(String apiKey, String sessionId) {
         String sql = """
         SELECT payload
