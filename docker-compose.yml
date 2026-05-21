@@ -55,7 +55,7 @@ services:
         soft: 262144
         hard: 262144
 
-  app:
+  landom-app:
     build: .
     platform: linux/amd64
     container_name: landom-app
