@@ -5,10 +5,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.dto.request.project.ProjectCreateRequest;
 import knu.dykf.landom.dto.request.project.ProjectUpdateRequest;
 import knu.dykf.landom.dto.response.project.ProjectListResponse;
 import knu.dykf.landom.dto.response.project.ProjectResponse;
+import knu.dykf.landom.service.project.ProjectOptimizationService;
 import knu.dykf.landom.service.project.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final ProjectOptimizationService projectOptimizationService;
 
     @Operation(summary = "프로젝트 생성", description = "새로운 프로젝트를 생성하고 API 키를 발급받습니다.")
     @ApiResponse(responseCode = "201", description = "프로젝트 생성 성공")
@@ -82,6 +85,19 @@ public class ProjectController {
             @PathVariable Long id) {
 
         projectService.crawlProjectHtml(userDetails.getUsername(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "섹션 HTML 개선안 생성 요청", description = "섹션 HTML, 최신 방문자 행동 데이터, 페르소나를 LLM 서버로 전달합니다.")
+    @ApiResponse(responseCode = "204", description = "개선안 생성 요청 성공")
+    @PostMapping("/{id}/optimizations/{sectionId}")
+    public ResponseEntity<Void> requestSectionOptimization(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @PathVariable Long sectionId,
+            @Valid @RequestBody OptimizationRequest request) {
+
+        projectOptimizationService.requestOptimization(userDetails.getUsername(), id, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 }
