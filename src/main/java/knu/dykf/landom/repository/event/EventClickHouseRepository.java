@@ -33,14 +33,7 @@ public class EventClickHouseRepository {
         this.objectMapper = objectMapper;
     }
 
-    public void saveAll(String projectKey, SdkEventRequest request) {
-        String sessionSql = """
-            INSERT INTO event_sessions (session_id, user_agent, url, api_key) 
-            VALUES (?, ?, ?, ?)
-        """;
-        jdbcTemplate.update(sessionSql,
-                request.sessionId(), request.userAgent(), request.url(), projectKey);
-
+    public void saveAll(String projectKey, SdkEventRequest request, String ctaSectionSelector) {
         String eventSql = """
             INSERT INTO event_details (session_id, event_type, timestamp, payload, css_selector) 
             VALUES (?, ?, ?, ?, ?)
@@ -57,6 +50,62 @@ public class EventClickHouseRepository {
                 .toList();
 
         jdbcTemplate.batchUpdate(eventSql, batchArgs);
+        saveSessionSnapshot(projectKey, request, ctaSectionSelector);
+    }
+
+    private void saveSessionSnapshot(String projectKey, SdkEventRequest request, String ctaSectionSelector) {
+        String status = resolveSessionStatus(projectKey, request.sessionId(), ctaSectionSelector);
+        Timestamp statusUpdatedAt = new Timestamp(System.currentTimeMillis());
+
+        String sessionSql = """
+            INSERT INTO event_sessions (session_id, user_agent, url, api_key, status, status_updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        """;
+
+        jdbcTemplate.update(sessionSql,
+                request.sessionId(),
+                request.userAgent(),
+                request.url(),
+                projectKey,
+                status,
+                statusUpdatedAt);
+    }
+
+    private String resolveSessionStatus(String projectKey, String sessionId, String ctaSectionSelector) {
+        String sql = """
+            SELECT multiIf(
+                (
+                    countIf(event_type = 'click' AND ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) > 0
+                    OR (
+                        countIf(? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) > 0
+                        AND countIf(event_type = 'click') > 0
+                        AND maxIf(timestamp, event_type = 'click') >= minIf(timestamp, ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%'))
+                    )
+                ),
+                'CONVERTED',
+                countIf(event_type = 'exit') > 0,
+                'DROP',
+                'EXPLORING'
+            ) AS status
+            FROM event_details
+            WHERE session_id = ?
+            AND session_id IN (
+                SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+                UNION DISTINCT
+                SELECT ? AS session_id
+            )
+            AND event_type != 'replay'
+        """;
+
+        String status = jdbcTemplate.queryForObject(sql, String.class,
+                ctaSectionSelector, ctaSectionSelector,
+                ctaSectionSelector, ctaSectionSelector,
+                ctaSectionSelector, ctaSectionSelector,
+                sessionId,
+                projectKey,
+                sessionId);
+
+        return status == null ? "EXPLORING" : status;
     }
 
     @SneakyThrows
