@@ -23,6 +23,8 @@ import java.util.zip.GZIPInputStream;
 @Repository
 public class EventClickHouseRepository {
 
+    private static final int SECTION_BEHAVIOR_SESSION_LIMIT = 10;
+
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -75,11 +77,11 @@ public class EventClickHouseRepository {
         String sql = """
             SELECT multiIf(
                 (
-                    countIf(event_type = 'click' AND ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) > 0
+                    countIf(event_type = 'click' AND ? != '' AND %s) > 0
                     OR (
-                        countIf(? != '' AND ifNull(css_selector, '') LIKE concat(?, '%')) > 0
+                        countIf(? != '' AND %s) > 0
                         AND countIf(event_type = 'click') > 0
-                        AND maxIf(timestamp, event_type = 'click') >= minIf(timestamp, ? != '' AND ifNull(css_selector, '') LIKE concat(?, '%'))
+                        AND maxIf(timestamp, event_type = 'click') >= minIf(timestamp, ? != '' AND %s)
                     )
                 ),
                 'CONVERTED',
@@ -95,12 +97,16 @@ public class EventClickHouseRepository {
                 SELECT ? AS session_id
             )
             AND event_type != 'replay'
-        """;
+        """.formatted(
+                sectionSelectorCondition(),
+                sectionSelectorCondition(),
+                sectionSelectorCondition()
+        );
 
         String status = jdbcTemplate.queryForObject(sql, String.class,
-                ctaSectionSelector, ctaSectionSelector,
-                ctaSectionSelector, ctaSectionSelector,
-                ctaSectionSelector, ctaSectionSelector,
+                ctaSectionSelector, ctaSectionSelector, ctaSectionSelector,
+                ctaSectionSelector, ctaSectionSelector, ctaSectionSelector,
+                ctaSectionSelector, ctaSectionSelector, ctaSectionSelector,
                 sessionId,
                 projectKey,
                 sessionId);
@@ -154,6 +160,15 @@ public class EventClickHouseRepository {
                 && encodedData.matches("^[A-Za-z0-9+/]*={0,2}$");
     }
 
+    private String sectionSelectorCondition() {
+        return sectionSelectorCondition("css_selector");
+    }
+
+    private String sectionSelectorCondition(String selectorColumn) {
+        return "(ifNull(%s, '') = ? OR ifNull(%s, '') LIKE concat(?, ' > %%'))"
+                .formatted(selectorColumn, selectorColumn);
+    }
+
     public long getTotalSessionCount(String apiKey) {
         String sql = """
             SELECT count(DISTINCT session_id)
@@ -173,7 +188,7 @@ public class EventClickHouseRepository {
         }
 
         String selectorConditions = reachedSectionSelectors.stream()
-                .map(selector -> "ifNull(css_selector, '') LIKE concat(?, '%')")
+                .map(selector -> sectionSelectorCondition())
                 .reduce((left, right) -> left + " OR " + right)
                 .orElse("false");
 
@@ -197,9 +212,138 @@ public class EventClickHouseRepository {
 
         List<Object> params = new ArrayList<>();
         params.add(apiKey);
-        params.addAll(reachedSectionSelectors);
+        reachedSectionSelectors.forEach(selector -> {
+            params.add(selector);
+            params.add(selector);
+        });
 
         return jdbcTemplate.queryForMap(sql, params.toArray());
+    }
+
+    public SectionBehaviorData getSectionBehaviorData(
+            String apiKey,
+            String sectionSelector,
+            LocalDateTime crawledAt
+    ) {
+        String crawledAtParam = crawledAt.toString();
+
+        String sessionSql = """
+                SELECT
+                    d.session_id,
+                    min(d.timestamp) AS first_event_at,
+                    max(d.timestamp) AS last_event_at,
+                    dateDiff('second', min(d.timestamp), max(d.timestamp)) AS duration_seconds
+                FROM event_details
+                AS d
+                JOIN (
+                    SELECT
+                        session_id,
+                        argMax(status, status_updated_at) AS status
+                    FROM event_sessions
+                    WHERE api_key = ?
+                    GROUP BY session_id
+                ) AS s ON d.session_id = s.session_id
+                WHERE d.timestamp >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
+                AND d.event_type != 'replay'
+                AND s.status = 'DROP'
+                AND %s
+                GROUP BY d.session_id
+                ORDER BY last_event_at DESC
+                LIMIT ?
+                """.formatted(sectionSelectorCondition("d.css_selector"));
+
+        List<SectionSessionWindow> sessionWindows = jdbcTemplate.query(
+                sessionSql,
+                (rs, rowNum) -> new SectionSessionWindow(
+                        rs.getString("session_id"),
+                        rs.getTimestamp("first_event_at").toLocalDateTime(),
+                        rs.getTimestamp("last_event_at").toLocalDateTime(),
+                        rs.getLong("duration_seconds")
+                ),
+                apiKey,
+                crawledAtParam,
+                sectionSelector,
+                sectionSelector,
+                SECTION_BEHAVIOR_SESSION_LIMIT
+        );
+
+        if (sessionWindows.isEmpty()) {
+            return new SectionBehaviorData(SECTION_BEHAVIOR_SESSION_LIMIT, List.of());
+        }
+
+        String scrollWindowConditions = sessionWindows.stream()
+                .map(session -> """
+                        (session_id = ?
+                        AND timestamp BETWEEN parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
+                        AND parseDateTime64BestEffort(?, 3, 'Asia/Seoul'))
+                        """)
+                .reduce((left, right) -> left + " OR " + right)
+                .orElseThrow();
+
+        String eventSql = """
+                SELECT
+                    session_id,
+                    event_type,
+                    timestamp,
+                    payload
+                FROM event_details
+                WHERE timestamp >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')
+                AND event_type != 'replay'
+                AND session_id IN (%s)
+                AND (
+                    %s
+                    OR (event_type = 'scroll' AND (%s))
+                )
+                ORDER BY session_id, timestamp ASC
+                """.formatted(
+                sessionWindows.stream()
+                        .map(session -> "?")
+                        .reduce((left, right) -> left + ", " + right)
+                        .orElseThrow(),
+                sectionSelectorCondition(),
+                scrollWindowConditions
+        );
+
+        List<Object> eventParams = new ArrayList<>();
+        eventParams.add(crawledAtParam);
+        sessionWindows.stream()
+                .map(SectionSessionWindow::sessionId)
+                .forEach(eventParams::add);
+        eventParams.add(sectionSelector);
+        eventParams.add(sectionSelector);
+        sessionWindows.forEach(session -> {
+            eventParams.add(session.sessionId());
+            eventParams.add(session.firstEventAt().toString());
+            eventParams.add(session.lastEventAt().toString());
+        });
+
+        Map<String, List<SectionBehaviorEvent>> eventsBySession = jdbcTemplate.query(
+                eventSql,
+                rs -> {
+                    Map<String, List<SectionBehaviorEvent>> events = new java.util.LinkedHashMap<>();
+                    while (rs.next()) {
+                        String sessionId = rs.getString("session_id");
+                        events.computeIfAbsent(sessionId, ignored -> new ArrayList<>())
+                                .add(new SectionBehaviorEvent(
+                                        rs.getString("event_type"),
+                                        rs.getTimestamp("timestamp").toLocalDateTime(),
+                                        rs.getString("payload")
+                                ));
+                    }
+                    return events;
+                },
+                eventParams.toArray()
+        );
+
+        List<SectionSessionBehavior> sessionBehaviors = sessionWindows.stream()
+                .map(session -> new SectionSessionBehavior(
+                        session.sessionId(),
+                        session.durationSeconds(),
+                        eventsBySession.getOrDefault(session.sessionId(), List.of())
+                ))
+                .toList();
+
+        return new SectionBehaviorData(SECTION_BEHAVIOR_SESSION_LIMIT, sessionBehaviors);
     }
 
     public Map<String, Object> getSummaryStats(String apiKey) {
@@ -270,6 +414,30 @@ public class EventClickHouseRepository {
     }
 
     public record TrendRawDto(String period, int score, long totalSessions, long convertedSessions) {}
+
+    public record SectionBehaviorData(
+            int latestSessionLimit,
+            List<SectionSessionBehavior> sessions
+    ) {}
+
+    public record SectionSessionBehavior(
+            String sessionId,
+            long durationSeconds,
+            List<SectionBehaviorEvent> events
+    ) {}
+
+    public record SectionBehaviorEvent(
+            String eventType,
+            LocalDateTime timestamp,
+            String payload
+    ) {}
+
+    private record SectionSessionWindow(
+            String sessionId,
+            LocalDateTime firstEventAt,
+            LocalDateTime lastEventAt,
+            long durationSeconds
+    ) {}
 
     public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
         String sql = """

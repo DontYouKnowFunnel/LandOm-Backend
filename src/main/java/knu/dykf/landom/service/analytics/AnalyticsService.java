@@ -87,6 +87,7 @@ public class AnalyticsService {
                     Math.round((double) (previousReachedCount - reachedCount) / previousReachedCount * 100.0) / 100.0;
 
             funnelDataList.add(new FunnelResponse.FunnelData(
+                    section.getId(),
                     section.getName(),
                     reachedCount,
                     reachRate,

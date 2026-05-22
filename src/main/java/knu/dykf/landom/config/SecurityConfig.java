@@ -60,6 +60,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/projects/*/optimizations/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/projects/*/analytics/section").permitAll()
                         .requestMatchers("/api/v1/events/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/**",
@@ -67,8 +69,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/index.html",
-                                "/landom-sdk.umd.js",
-                                "/api/v1/projects/*/analytics/section"
+                                "/landom-sdk.umd.js"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

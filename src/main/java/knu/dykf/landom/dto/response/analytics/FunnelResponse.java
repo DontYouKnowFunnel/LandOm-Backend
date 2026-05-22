@@ -25,6 +25,9 @@ public record FunnelResponse(
 
     @Schema(description = "섹션별 도달 및 이탈 통계")
     public record FunnelData(
+            @Schema(description = "섹션 ID", example = "1")
+            Long sectionId,
+
             @Schema(description = "섹션 이름", example = "HERO", implementation = SectionName.class)
             SectionName sectionName,
 

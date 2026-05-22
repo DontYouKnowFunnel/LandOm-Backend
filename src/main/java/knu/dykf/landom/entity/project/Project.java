@@ -35,6 +35,12 @@ public class Project {
 
     private String url;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String landingPageHtml;
+
+    private LocalDateTime landingPageCrawledAt;
+
     @Column(nullable = false, unique = true)
     private String apiKey;
 
@@ -51,6 +57,11 @@ public class Project {
         this.name = name;
         this.description = description;
         this.url = url;
+    }
+
+    public void updateLandingPageSnapshot(String html, LocalDateTime crawledAt) {
+        this.landingPageHtml = html;
+        this.landingPageCrawledAt = crawledAt;
     }
 
     public FunnelAnalysisStatus getFunnelAnalysisStatus() {
