@@ -2,15 +2,18 @@ package knu.dykf.landom.service.project;
 
 import knu.dykf.landom.dto.request.project.LlmOptimizationRequest;
 import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
+import knu.dykf.landom.dto.request.project.OptimizationRecommendation;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
+import knu.dykf.landom.entity.project.SectionOptimizationRecommendation;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
 import knu.dykf.landom.repository.event.EventClickHouseRepository.SectionBehaviorData;
 import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionOptimizationRecommendationRepository;
 import knu.dykf.landom.repository.project.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
@@ -21,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ProjectOptimizationService {
@@ -28,6 +33,7 @@ public class ProjectOptimizationService {
     private final ProjectRepository projectRepository;
     private final SectionRepository sectionRepository;
     private final EventClickHouseRepository eventClickHouseRepository;
+    private final SectionOptimizationRecommendationRepository optimizationRecommendationRepository;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -37,7 +43,13 @@ public class ProjectOptimizationService {
         getProjectAndValidateOwnership(username, projectId);
         Section section = getSectionInProject(projectId, sectionId);
 
-        return new OptimizationPlanResponse(section.getOptimizationPlan());
+        List<OptimizationRecommendation> recommendations = optimizationRecommendationRepository
+                .findBySectionIdOrderByRankAsc(section.getId())
+                .stream()
+                .map(SectionOptimizationRecommendation::toResponse)
+                .toList();
+
+        return new OptimizationPlanResponse(recommendations);
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +91,12 @@ public class ProjectOptimizationService {
 
         Section section = getSectionInProject(projectId, sectionId);
 
-        section.updateOptimizationPlan(request.optimizationPlan());
+        optimizationRecommendationRepository.deleteBySectionId(section.getId());
+        List<SectionOptimizationRecommendation> recommendations = request.recommendations()
+                .stream()
+                .map(recommendation -> new SectionOptimizationRecommendation(section, recommendation))
+                .toList();
+        optimizationRecommendationRepository.saveAll(recommendations);
     }
 
     private Project getProjectAndValidateOwnership(String username, Long projectId) {
