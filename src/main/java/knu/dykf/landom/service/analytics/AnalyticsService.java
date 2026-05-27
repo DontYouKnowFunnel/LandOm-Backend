@@ -80,7 +80,7 @@ public class AnalyticsService {
                     .toList();
 
             Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
-                    apiKey, reachedSectionSelectors);
+                    apiKey, reachedSectionSelectors, section.getCssSelector());
 
             long reachedCount = getLong(stats, "reached_count");
             double avgDurationSeconds = getDouble(stats, "avg_duration");

@@ -182,7 +182,11 @@ public class EventClickHouseRepository {
         return count == null ? 0L : count;
     }
 
-    public Map<String, Object> getSectionStats(String apiKey, List<String> reachedSectionSelectors) {
+    public Map<String, Object> getSectionStats(
+            String apiKey,
+            List<String> reachedSectionSelectors,
+            String durationSectionSelector
+    ) {
         if (reachedSectionSelectors.isEmpty()) {
             return Map.of("reached_count", 0L, "avg_duration", 0.0);
         }
@@ -192,23 +196,40 @@ public class EventClickHouseRepository {
                 .reduce((left, right) -> left + " OR " + right)
                 .orElse("false");
 
+        String durationSelectorCondition = sectionSelectorCondition();
+
         String sql = """
-            SELECT 
-                count(DISTINCT session_id) AS reached_count,
-                avg(duration_seconds) AS avg_duration
+            SELECT
+                reached.reached_count AS reached_count,
+                ifNull(duration.avg_duration, 0.0) AS avg_duration
             FROM (
-                SELECT 
-                    session_id,
-                    dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
+                SELECT count(DISTINCT session_id) AS reached_count
                 FROM event_details
                 WHERE session_id IN (
                     SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
                 )
                 AND event_type != 'replay'
                 AND (%s)
-                GROUP BY session_id
+            ) AS reached
+            CROSS JOIN (
+                SELECT avg(duration_seconds) AS avg_duration
+                FROM (
+                    SELECT
+                        session_id,
+                        greatest(
+                            toFloat64(dateDiff('second', min(timestamp), max(timestamp))),
+                            toFloat64(countIf(event_type = 'ping') * 5)
+                        ) AS duration_seconds
+                    FROM event_details
+                    WHERE session_id IN (
+                        SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+                    )
+                    AND event_type != 'replay'
+                    AND %s
+                    GROUP BY session_id
+                )
             )
-        """.formatted(selectorConditions);
+        """.formatted(selectorConditions, durationSelectorCondition);
 
         List<Object> params = new ArrayList<>();
         params.add(apiKey);
@@ -216,6 +237,9 @@ public class EventClickHouseRepository {
             params.add(selector);
             params.add(selector);
         });
+        params.add(apiKey);
+        params.add(durationSectionSelector);
+        params.add(durationSectionSelector);
 
         return jdbcTemplate.queryForMap(sql, params.toArray());
     }
