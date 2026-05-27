@@ -47,41 +47,41 @@ public class ProjectController {
 
     @Operation(summary = "프로젝트 상세 조회", description = "특정 프로젝트의 상세 정보를 조회합니다.")
     @ApiResponse(responseCode = "200", description = "프로젝트 상세 조회 성공")
-    @GetMapping("/{id}")
+    @GetMapping("/{projectId}")
     public ResponseEntity<ProjectResponse> getProjectDetail(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id) {
-        return ResponseEntity.ok(projectService.getProjectDetail(userDetails.getUsername(), id));
+            @PathVariable("projectId") Long projectId) {
+        return ResponseEntity.ok(projectService.getProjectDetail(userDetails.getUsername(), projectId));
     }
 
     @Operation(summary = "프로젝트 수정", description = "프로젝트의 이름이나 설명을 수정합니다.")
         @ApiResponse(responseCode = "200", description = "프로젝트 수정 성공")
-    @PatchMapping("/{id}")
+    @PatchMapping("/{projectId}")
     public ResponseEntity<ProjectResponse> updateProject(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id,
+            @PathVariable("projectId") Long projectId,
             @Valid @RequestBody ProjectUpdateRequest request) {
-        return ResponseEntity.ok(projectService.updateProject(userDetails.getUsername(), id, request));
+        return ResponseEntity.ok(projectService.updateProject(userDetails.getUsername(), projectId, request));
     }
 
     @Operation(summary = "프로젝트 삭제", description = "프로젝트를 완전히 삭제합니다.")
     @ApiResponse(responseCode = "204", description = "프로젝트 삭제 성공")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{projectId}")
     public ResponseEntity<Void> deleteProject(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id) {
-        projectService.deleteProject(userDetails.getUsername(), id);
+            @PathVariable("projectId") Long projectId) {
+        projectService.deleteProject(userDetails.getUsername(), projectId);
         return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "프로젝트 랜딩 페이지 크롤링", description = "프로젝트 ID를 통해 DB에 저장된 URL을 조회한 후 크롤링을 수행합니다.")
     @ApiResponse(responseCode = "200", description = "크롤링 성공")
-    @GetMapping("/{id}/crawl")
+    @GetMapping("/{projectId}/crawl")
     public ResponseEntity<String> crawlProjectLandingPage(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id) {
+            @PathVariable("projectId") Long projectId) {
 
-        projectService.crawlProjectHtml(userDetails.getUsername(), id);
+        projectService.crawlProjectHtml(userDetails.getUsername(), projectId);
         return ResponseEntity.noContent().build();
     }
 }
