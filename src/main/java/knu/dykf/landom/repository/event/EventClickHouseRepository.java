@@ -439,33 +439,24 @@ public class EventClickHouseRepository {
             long durationSeconds
     ) {}
 
-    public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
-        String sql = """
-        SELECT 
-            s.session_id,
-            s.user_agent,
-            min(d.timestamp) as start_time,
-            max(d.timestamp) as end_time,
-            dateDiff('second', min(d.timestamp), max(d.timestamp)) as duration_seconds,
-            argMax(d.css_selector, d.timestamp) as last_selector,
-            s.status
-        FROM (
-            SELECT
-                session_id,
-                argMax(user_agent, status_updated_at) AS user_agent,
-                argMax(status, status_updated_at) AS status
-            FROM event_sessions
-            WHERE api_key = ?
-            GROUP BY session_id
-        ) AS s
-        JOIN event_details AS d ON s.session_id = d.session_id
-        WHERE d.event_type != 'replay'
-        GROUP BY s.session_id, s.user_agent, s.status
-        ORDER BY start_time DESC
-        LIMIT ?
-    """;
+    public List<SessionSummaryDto> getRecentSessions(
+            String apiKey,
+            String sectionSelector,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTimeExclusive,
+            String status,
+            int limit
+    ) {
+        SessionQuery query = buildRecentSessionQuery(
+                apiKey,
+                sectionSelector,
+                startDateTime,
+                endDateTimeExclusive,
+                status,
+                limit
+        );
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new SessionSummaryDto(
+        return jdbcTemplate.query(query.sql(), (rs, rowNum) -> new SessionSummaryDto(
                 rs.getString("session_id"),
                 rs.getString("user_agent"),
                 rs.getTimestamp("start_time").toLocalDateTime(),
@@ -474,8 +465,81 @@ public class EventClickHouseRepository {
                 rs.getString("last_selector"),
                 rs.getString("status")
         ),
-                apiKey,
-                limit);
+                query.params().toArray());
+    }
+
+    private SessionQuery buildRecentSessionQuery(
+            String apiKey,
+            String sectionSelector,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTimeExclusive,
+            String status,
+            int limit
+    ) {
+        String sessionSummarySql = """
+            SELECT
+                s.session_id,
+                s.user_agent,
+                min(d.timestamp) AS start_time,
+                max(d.timestamp) AS end_time,
+                dateDiff('second', min(d.timestamp), max(d.timestamp)) AS duration_seconds,
+                argMax(d.css_selector, d.timestamp) AS last_selector,
+                s.status
+            FROM (
+                SELECT
+                    session_id,
+                    argMax(user_agent, status_updated_at) AS user_agent,
+                    argMax(status, status_updated_at) AS status
+                FROM event_sessions
+                WHERE api_key = ?
+                GROUP BY session_id
+            ) AS s
+            JOIN event_details AS d ON s.session_id = d.session_id
+            WHERE d.event_type != 'replay'
+            GROUP BY s.session_id, s.user_agent, s.status
+            """;
+
+        List<Object> params = new ArrayList<>();
+        params.add(apiKey);
+
+        StringBuilder conditions = new StringBuilder("WHERE 1 = 1");
+        if (sectionSelector != null) {
+            conditions.append(" AND ").append(sectionSelectorCondition("last_selector"));
+            params.add(sectionSelector);
+            params.add(sectionSelector);
+        }
+        if (startDateTime != null) {
+            conditions.append(" AND start_time >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')");
+            params.add(startDateTime.toString());
+        }
+        if (endDateTimeExclusive != null) {
+            conditions.append(" AND start_time < parseDateTime64BestEffort(?, 3, 'Asia/Seoul')");
+            params.add(endDateTimeExclusive.toString());
+        }
+        if (status != null) {
+            conditions.append(" AND status = ?");
+            params.add(status);
+        }
+        params.add(limit);
+
+        String sql = """
+            SELECT
+                session_id,
+                user_agent,
+                start_time,
+                end_time,
+                duration_seconds,
+                last_selector,
+                status
+            FROM (
+                %s
+            ) AS session_summary
+            %s
+            ORDER BY start_time DESC
+            LIMIT ?
+            """.formatted(sessionSummarySql, conditions);
+
+        return new SessionQuery(sql, params);
     }
 
     public record SessionSummaryDto(
@@ -486,6 +550,11 @@ public class EventClickHouseRepository {
             long durationSeconds,
             String lastCssSelector,
             String status
+    ) {}
+
+    private record SessionQuery(
+            String sql,
+            List<Object> params
     ) {}
 
     public void markInactiveExploringSessionsAsDrop() {
