@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Optimization", description = "섹션 HTML 개선안 관련 API")
 @RestController
-@RequestMapping(value = "/api/v1/projects/{id}/optimizations", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/v1/projects/{projectId}/optimizations", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 @SecurityRequirement(name = "jwtAuth")
 public class OptimizationController {
@@ -36,11 +36,11 @@ public class OptimizationController {
     @PostMapping("/{sectionId}")
     public ResponseEntity<Void> requestSectionOptimization(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id,
+            @PathVariable("projectId") Long projectId,
             @PathVariable Long sectionId,
             @Valid @RequestBody OptimizationRequest request) {
 
-        projectOptimizationService.requestOptimization(userDetails.getUsername(), id, sectionId, request);
+        projectOptimizationService.requestOptimization(userDetails.getUsername(), projectId, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -49,22 +49,22 @@ public class OptimizationController {
     @GetMapping("/{sectionId}")
     public ResponseEntity<OptimizationPlanResponse> getSectionOptimizationPlan(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long id,
+            @PathVariable("projectId") Long projectId,
             @PathVariable Long sectionId) {
 
         return ResponseEntity.ok(projectOptimizationService.getOptimizationPlan(
-                userDetails.getUsername(), id, sectionId));
+                userDetails.getUsername(), projectId, sectionId));
     }
 
     @Operation(summary = "섹션 HTML 개선안 저장", description = "LLM 서버가 생성한 섹션별 HTML 개선안을 저장합니다.")
     @ApiResponse(responseCode = "204", description = "개선안 저장 성공")
     @PatchMapping("/{sectionId}")
     public ResponseEntity<Void> updateSectionOptimizationPlan(
-            @PathVariable Long id,
+            @PathVariable("projectId") Long projectId,
             @PathVariable Long sectionId,
             @Valid @RequestBody OptimizationPlanRequest request) {
 
-        projectOptimizationService.updateOptimizationPlan(id, sectionId, request);
+        projectOptimizationService.updateOptimizationPlan(projectId, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 }
