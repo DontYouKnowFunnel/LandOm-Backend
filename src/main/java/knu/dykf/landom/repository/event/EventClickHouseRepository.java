@@ -227,8 +227,8 @@ public class EventClickHouseRepository {
                     AND event_type != 'replay'
                     AND %s
                     GROUP BY session_id
-                )
-            )
+                ) AS session_duration
+            ) AS duration
         """.formatted(selectorConditions, durationSelectorCondition);
 
         List<Object> params = new ArrayList<>();
