@@ -19,8 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -77,7 +80,7 @@ public class AnalyticsService {
                     .toList();
 
             Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
-                    apiKey, reachedSectionSelectors);
+                    apiKey, reachedSectionSelectors, section.getCssSelector());
 
             long reachedCount = getLong(stats, "reached_count");
             double avgDurationSeconds = getDouble(stats, "avg_duration");
@@ -110,13 +113,33 @@ public class AnalyticsService {
         };
     }
 
-    public SessionListResponse getRecentSessions(String username, Long id, int limit) {
+    public SessionListResponse getRecentSessions(
+            String username,
+            Long id,
+            Long sectionId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String status,
+            int limit
+    ) {
+        validateSessionQuery(startDate, endDate, limit);
 
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
+        String sectionSelector = resolveSectionSelector(project.getId(), sectionId);
+        String normalizedStatus = normalizeSessionStatus(status);
+        LocalDateTime startDateTime = startDate == null ? null : startDate.atStartOfDay();
+        LocalDateTime endDateTimeExclusive = endDate == null ? null : endDate.plusDays(1).atStartOfDay();
         List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
-                eventClickHouseRepository.getRecentSessions(apiKey, limit);
+                eventClickHouseRepository.getRecentSessions(
+                        apiKey,
+                        sectionSelector,
+                        startDateTime,
+                        endDateTimeExclusive,
+                        normalizedStatus,
+                        limit
+                );
 
         List<SessionListResponse.SessionDto> dtoList = rawSessions.stream()
                 .map(raw -> mapToDto(raw, sections))
@@ -191,6 +214,40 @@ public class AnalyticsService {
         }
 
         return project;
+    }
+
+    private void validateSessionQuery(LocalDate startDate, LocalDate endDate, int limit) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (limit <= 0) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private String resolveSectionSelector(Long projectId, Long sectionId) {
+        if (sectionId == null) {
+            return null;
+        }
+
+        return sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .map(Section::getCssSelector)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+    }
+
+    private String normalizeSessionStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+
+        String normalized = status.trim().toUpperCase();
+        boolean supported = Arrays.asList("CONVERTED", "DROP", "EXPLORING").contains(normalized);
+        if (!supported) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return normalized;
     }
 
     private SessionListResponse.SessionDto mapToDto(

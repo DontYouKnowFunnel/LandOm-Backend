@@ -182,7 +182,11 @@ public class EventClickHouseRepository {
         return count == null ? 0L : count;
     }
 
-    public Map<String, Object> getSectionStats(String apiKey, List<String> reachedSectionSelectors) {
+    public Map<String, Object> getSectionStats(
+            String apiKey,
+            List<String> reachedSectionSelectors,
+            String durationSectionSelector
+    ) {
         if (reachedSectionSelectors.isEmpty()) {
             return Map.of("reached_count", 0L, "avg_duration", 0.0);
         }
@@ -192,23 +196,40 @@ public class EventClickHouseRepository {
                 .reduce((left, right) -> left + " OR " + right)
                 .orElse("false");
 
+        String durationSelectorCondition = sectionSelectorCondition();
+
         String sql = """
-            SELECT 
-                count(DISTINCT session_id) AS reached_count,
-                avg(duration_seconds) AS avg_duration
+            SELECT
+                reached.reached_count AS reached_count,
+                ifNull(duration.avg_duration, 0.0) AS avg_duration
             FROM (
-                SELECT 
-                    session_id,
-                    dateDiff('second', min(timestamp), max(timestamp)) AS duration_seconds
+                SELECT count(DISTINCT session_id) AS reached_count
                 FROM event_details
                 WHERE session_id IN (
                     SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
                 )
                 AND event_type != 'replay'
                 AND (%s)
-                GROUP BY session_id
+            ) AS reached
+            CROSS JOIN (
+                SELECT avg(duration_seconds) AS avg_duration
+                FROM (
+                    SELECT
+                        session_id,
+                        greatest(
+                            toFloat64(dateDiff('second', min(timestamp), max(timestamp))),
+                            toFloat64(countIf(event_type = 'ping') * 5)
+                        ) AS duration_seconds
+                    FROM event_details
+                    WHERE session_id IN (
+                        SELECT session_id FROM event_sessions FINAL WHERE api_key = ?
+                    )
+                    AND event_type != 'replay'
+                    AND %s
+                    GROUP BY session_id
+                )
             )
-        """.formatted(selectorConditions);
+        """.formatted(selectorConditions, durationSelectorCondition);
 
         List<Object> params = new ArrayList<>();
         params.add(apiKey);
@@ -216,6 +237,9 @@ public class EventClickHouseRepository {
             params.add(selector);
             params.add(selector);
         });
+        params.add(apiKey);
+        params.add(durationSectionSelector);
+        params.add(durationSectionSelector);
 
         return jdbcTemplate.queryForMap(sql, params.toArray());
     }
@@ -439,33 +463,24 @@ public class EventClickHouseRepository {
             long durationSeconds
     ) {}
 
-    public List<SessionSummaryDto> getRecentSessions(String apiKey, int limit) {
-        String sql = """
-        SELECT 
-            s.session_id,
-            s.user_agent,
-            min(d.timestamp) as start_time,
-            max(d.timestamp) as end_time,
-            dateDiff('second', min(d.timestamp), max(d.timestamp)) as duration_seconds,
-            argMax(d.css_selector, d.timestamp) as last_selector,
-            s.status
-        FROM (
-            SELECT
-                session_id,
-                argMax(user_agent, status_updated_at) AS user_agent,
-                argMax(status, status_updated_at) AS status
-            FROM event_sessions
-            WHERE api_key = ?
-            GROUP BY session_id
-        ) AS s
-        JOIN event_details AS d ON s.session_id = d.session_id
-        WHERE d.event_type != 'replay'
-        GROUP BY s.session_id, s.user_agent, s.status
-        ORDER BY start_time DESC
-        LIMIT ?
-    """;
+    public List<SessionSummaryDto> getRecentSessions(
+            String apiKey,
+            String sectionSelector,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTimeExclusive,
+            String status,
+            int limit
+    ) {
+        SessionQuery query = buildRecentSessionQuery(
+                apiKey,
+                sectionSelector,
+                startDateTime,
+                endDateTimeExclusive,
+                status,
+                limit
+        );
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new SessionSummaryDto(
+        return jdbcTemplate.query(query.sql(), (rs, rowNum) -> new SessionSummaryDto(
                 rs.getString("session_id"),
                 rs.getString("user_agent"),
                 rs.getTimestamp("start_time").toLocalDateTime(),
@@ -474,8 +489,81 @@ public class EventClickHouseRepository {
                 rs.getString("last_selector"),
                 rs.getString("status")
         ),
-                apiKey,
-                limit);
+                query.params().toArray());
+    }
+
+    private SessionQuery buildRecentSessionQuery(
+            String apiKey,
+            String sectionSelector,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTimeExclusive,
+            String status,
+            int limit
+    ) {
+        String sessionSummarySql = """
+            SELECT
+                s.session_id,
+                s.user_agent,
+                min(d.timestamp) AS start_time,
+                max(d.timestamp) AS end_time,
+                dateDiff('second', min(d.timestamp), max(d.timestamp)) AS duration_seconds,
+                argMax(d.css_selector, d.timestamp) AS last_selector,
+                s.status
+            FROM (
+                SELECT
+                    session_id,
+                    argMax(user_agent, status_updated_at) AS user_agent,
+                    argMax(status, status_updated_at) AS status
+                FROM event_sessions
+                WHERE api_key = ?
+                GROUP BY session_id
+            ) AS s
+            JOIN event_details AS d ON s.session_id = d.session_id
+            WHERE d.event_type != 'replay'
+            GROUP BY s.session_id, s.user_agent, s.status
+            """;
+
+        List<Object> params = new ArrayList<>();
+        params.add(apiKey);
+
+        StringBuilder conditions = new StringBuilder("WHERE 1 = 1");
+        if (sectionSelector != null) {
+            conditions.append(" AND ").append(sectionSelectorCondition("last_selector"));
+            params.add(sectionSelector);
+            params.add(sectionSelector);
+        }
+        if (startDateTime != null) {
+            conditions.append(" AND start_time >= parseDateTime64BestEffort(?, 3, 'Asia/Seoul')");
+            params.add(startDateTime.toString());
+        }
+        if (endDateTimeExclusive != null) {
+            conditions.append(" AND start_time < parseDateTime64BestEffort(?, 3, 'Asia/Seoul')");
+            params.add(endDateTimeExclusive.toString());
+        }
+        if (status != null) {
+            conditions.append(" AND status = ?");
+            params.add(status);
+        }
+        params.add(limit);
+
+        String sql = """
+            SELECT
+                session_id,
+                user_agent,
+                start_time,
+                end_time,
+                duration_seconds,
+                last_selector,
+                status
+            FROM (
+                %s
+            ) AS session_summary
+            %s
+            ORDER BY start_time DESC
+            LIMIT ?
+            """.formatted(sessionSummarySql, conditions);
+
+        return new SessionQuery(sql, params);
     }
 
     public record SessionSummaryDto(
@@ -486,6 +574,11 @@ public class EventClickHouseRepository {
             long durationSeconds,
             String lastCssSelector,
             String status
+    ) {}
+
+    private record SessionQuery(
+            String sql,
+            List<Object> params
     ) {}
 
     public void markInactiveExploringSessionsAsDrop() {

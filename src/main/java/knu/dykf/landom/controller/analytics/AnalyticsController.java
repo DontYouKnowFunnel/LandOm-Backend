@@ -18,6 +18,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+
 @Tag(name = "Analytics", description = "데이터 분석 관련 API (퍼널 및 세션 조회)")
 @RestController
 @RequestMapping(value = "/api/v1/projects/{projectId}/analytics", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -43,10 +45,26 @@ public class AnalyticsController {
             @AuthenticationPrincipal UserDetails userDetails,
             @Parameter(description = "프로젝트 ID", example = "1")
             @PathVariable("projectId") Long projectId,
+            @Parameter(description = "마지막으로 머문 섹션 ID", example = "1")
+            @RequestParam(required = false) Long sectionId,
+            @Parameter(description = "시작일 (yyyy-MM-dd)", example = "2026-05-20")
+            @RequestParam(required = false) LocalDate startDate,
+            @Parameter(description = "종료일 (yyyy-MM-dd)", example = "2026-05-27")
+            @RequestParam(required = false) LocalDate endDate,
+            @Parameter(description = "세션 상태 (CONVERTED/DROP/EXPLORING)", example = "DROP")
+            @RequestParam(required = false) String status,
             @Parameter(description = "조회할 세션 개수 (기본값: 4)", example = "10")
             @RequestParam(defaultValue = "4") int limit) {
 
-        SessionListResponse response = analyticsService.getRecentSessions(userDetails.getUsername(), projectId, limit);
+        SessionListResponse response = analyticsService.getRecentSessions(
+                userDetails.getUsername(),
+                projectId,
+                sectionId,
+                startDate,
+                endDate,
+                status,
+                limit
+        );
         return ResponseEntity.ok(response);
     }
 
