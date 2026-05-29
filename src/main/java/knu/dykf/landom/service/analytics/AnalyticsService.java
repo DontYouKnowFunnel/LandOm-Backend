@@ -13,6 +13,7 @@ import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
 import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionOptimizationRecommendationRepository;
 import knu.dykf.landom.repository.project.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,11 +35,13 @@ public class AnalyticsService {
 
     private final EventClickHouseRepository eventClickHouseRepository;
     private final SectionRepository sectionRepository;
+    private final SectionOptimizationRecommendationRepository optimizationRecommendationRepository;
     private final ProjectRepository projectRepository;
 
     @Transactional
     public void saveProjectSections(Long projectId, SectionRequest request) {
         // 1. 해당 프로젝트의 기존 섹션 설정 삭제
+        optimizationRecommendationRepository.deleteBySection_Project_Id(projectId);
         sectionRepository.deleteByProjectId(projectId);
 
         Project project = projectRepository.findById(projectId)

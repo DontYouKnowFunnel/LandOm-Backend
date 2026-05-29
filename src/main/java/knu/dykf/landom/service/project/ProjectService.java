@@ -10,6 +10,7 @@ import knu.dykf.landom.entity.user.User;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionOptimizationRecommendationRepository;
 import knu.dykf.landom.repository.user.UserRepository;
 import knu.dykf.landom.service.analytics.FunnelAnalysisStatusService;
 import knu.dykf.landom.service.analytics.FunnelAnalysisTimeoutService;
@@ -33,6 +34,7 @@ public class ProjectService {
     private final FunnelAnalysisStatusService funnelAnalysisStatusService;
     private final FunnelAnalysisTimeoutService funnelAnalysisTimeoutService;
     private final LandingPageSnapshotService landingPageSnapshotService;
+    private final SectionOptimizationRecommendationRepository optimizationRecommendationRepository;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -81,6 +83,7 @@ public class ProjectService {
     @Transactional
     public void deleteProject(String username, Long projectId) {
         Project project = getProjectAndValidateOwnership(username, projectId);
+        optimizationRecommendationRepository.deleteBySection_Project_Id(projectId);
         projectRepository.delete(project);
     }
 
