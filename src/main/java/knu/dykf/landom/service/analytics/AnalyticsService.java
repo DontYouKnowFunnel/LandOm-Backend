@@ -57,6 +57,7 @@ public class AnalyticsService {
                         .project(project)
                         .name(step.name())
                         .cssSelector(step.selector())
+                        .html(extractSectionHtml(project, step.selector()))
                         .cssRules(extractSectionCssRules(project, step.selector()))
                         .stepOrder(step.stepOrder())
                         .build())
@@ -112,6 +113,7 @@ public class AnalyticsService {
         return new FunnelResponse(status, totalSessions, funnelDataList);
     }
 
+    @Transactional
     public SectionSourceResponse getSectionSource(String username, Long projectId, Long sectionId) {
         Project project = getProjectAndValidateOwnership(username, projectId);
         Section section = getSectionInProject(projectId, sectionId);
@@ -120,18 +122,26 @@ public class AnalyticsService {
             throw new CustomException(ErrorCode.LANDING_PAGE_SNAPSHOT_NOT_FOUND);
         }
 
-        String html = sectionSourceExtractor.extractSectionHtml(
-                project.getLandingPageHtml(),
-                section.getCssSelector()
-        );
+        String html = section.getHtml();
         String cssRules = section.getCssRules();
-        // 예전 데이터에 부정확한 CSS가 저장돼 있을 수 있어 전체 CSS 스냅샷이 있으면 조회 시점에 다시 추출한다.
-        if (project.getLandingPageCss() != null && !project.getLandingPageCss().isBlank()) {
+
+        if (html == null || html.isBlank()) {
+            html = sectionSourceExtractor.extractSectionHtml(
+                    project.getLandingPageHtml(),
+                    section.getCssSelector()
+            );
+            section.updateSource(html, cssRules);
+        }
+
+        if ((cssRules == null || cssRules.isBlank())
+                && project.getLandingPageCss() != null
+                && !project.getLandingPageCss().isBlank()) {
             cssRules = sectionSourceExtractor.extractSectionCssRules(
                     project.getLandingPageHtml(),
                     project.getLandingPageCss(),
                     section.getCssSelector()
             );
+            section.updateSource(html, cssRules);
         }
 
         return new SectionSourceResponse(
@@ -141,6 +151,18 @@ public class AnalyticsService {
                 html,
                 cssRules == null ? "" : cssRules
         );
+    }
+
+    private String extractSectionHtml(Project project, String cssSelector) {
+        if (project.getLandingPageHtml() == null || project.getLandingPageHtml().isBlank()) {
+            return "";
+        }
+
+        try {
+            return sectionSourceExtractor.extractSectionHtml(project.getLandingPageHtml(), cssSelector);
+        } catch (CustomException e) {
+            return "";
+        }
     }
 
     private FunnelResponse.Status mapStatus(FunnelAnalysisStatus status) {
