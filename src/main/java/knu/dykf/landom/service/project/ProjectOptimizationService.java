@@ -1,8 +1,8 @@
 package knu.dykf.landom.service.project;
 
+import knu.dykf.landom.dto.project.OptimizationRecommendation;
 import knu.dykf.landom.dto.request.project.LlmOptimizationRequest;
 import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
-import knu.dykf.landom.dto.request.project.OptimizationRecommendation;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
 import knu.dykf.landom.entity.project.Project;

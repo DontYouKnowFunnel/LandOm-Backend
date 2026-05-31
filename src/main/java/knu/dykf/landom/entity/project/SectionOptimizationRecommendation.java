@@ -12,7 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import knu.dykf.landom.dto.request.project.OptimizationRecommendation;
+import knu.dykf.landom.dto.project.OptimizationRecommendation;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -88,6 +88,7 @@ public class SectionOptimizationRecommendation {
 
     public OptimizationRecommendation toResponse() {
         return new OptimizationRecommendation(
+                id,
                 rank,
                 title,
                 problem,
