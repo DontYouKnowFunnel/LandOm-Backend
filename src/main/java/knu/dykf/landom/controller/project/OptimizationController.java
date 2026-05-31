@@ -75,37 +75,38 @@ public class OptimizationController {
 
     @Operation(summary = "개선안 기반 코드 생성 요청", description = "개선안 ID 목록을 LLM 서버로 전달해 개선안이 적용된 HTML/CSS 생성을 요청합니다.")
     @ApiResponse(responseCode = "204", description = "코드 생성 요청 성공")
-    @PostMapping("/codegen")
+    @PostMapping("/{sectionId}/codegen")
     public ResponseEntity<Void> requestCodegen(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable("projectId") Long projectId,
+            @PathVariable Long sectionId,
             @Valid @RequestBody CodegenRequest request) {
 
-        projectCodegenService.requestCodegen(userDetails.getUsername(), projectId, request);
+        projectCodegenService.requestCodegen(userDetails.getUsername(), projectId, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "개선안 기반 코드 생성 결과 저장", description = "LLM 서버가 생성한 HTML/CSS를 개선안에 저장합니다.")
+    @Operation(summary = "개선안 기반 코드 생성 결과 저장", description = "LLM 서버가 생성한 HTML/CSS를 섹션에 저장합니다.")
     @ApiResponse(responseCode = "204", description = "코드 생성 결과 저장 성공")
-    @PatchMapping("/{optimizationId}/codegen")
+    @PatchMapping("/{sectionId}/codegen")
     public ResponseEntity<Void> updateCodegenResult(
             @PathVariable("projectId") Long projectId,
-            @PathVariable Long optimizationId,
+            @PathVariable Long sectionId,
             @Valid @RequestBody CodegenResultRequest request) {
 
-        projectCodegenService.updateCodegenResult(projectId, optimizationId, request);
+        projectCodegenService.updateCodegenResult(projectId, sectionId, request);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "개선안 기반 코드 생성 결과 조회", description = "개선안에 저장된 생성 HTML/CSS를 조회합니다.")
+    @Operation(summary = "개선안 기반 코드 생성 결과 조회", description = "섹션에 저장된 생성 HTML/CSS를 조회합니다.")
     @ApiResponse(responseCode = "200", description = "코드 생성 결과 조회 성공")
-    @GetMapping("/{optimizationId}/codegen")
+    @GetMapping("/{sectionId}/codegen")
     public ResponseEntity<CodegenResponse> getCodegenResult(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable("projectId") Long projectId,
-            @PathVariable Long optimizationId) {
+            @PathVariable Long sectionId) {
 
         return ResponseEntity.ok(projectCodegenService.getCodegenResult(
-                userDetails.getUsername(), projectId, optimizationId));
+                userDetails.getUsername(), projectId, sectionId));
     }
 }
