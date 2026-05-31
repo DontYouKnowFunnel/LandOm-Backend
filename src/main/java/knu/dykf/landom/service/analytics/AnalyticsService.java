@@ -41,6 +41,12 @@ public class AnalyticsService {
     private final ProjectRepository projectRepository;
     private final SectionSourceExtractor sectionSourceExtractor;
 
+    public void validateProjectExists(Long projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new CustomException(ErrorCode.PROJECT_NOT_FOUND);
+        }
+    }
+
     @Transactional
     public void saveProjectSections(Long projectId, SectionRequest request) {
         // 1. 해당 프로젝트의 기존 섹션 설정 삭제
