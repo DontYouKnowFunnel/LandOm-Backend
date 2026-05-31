@@ -39,6 +39,10 @@ public class Project {
     @Column(columnDefinition = "LONGTEXT")
     private String landingPageHtml;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String landingPageCss;
+
     private LocalDateTime landingPageCrawledAt;
 
     @Column(nullable = false, unique = true)
@@ -61,6 +65,12 @@ public class Project {
 
     public void updateLandingPageSnapshot(String html, LocalDateTime crawledAt) {
         this.landingPageHtml = html;
+        this.landingPageCrawledAt = crawledAt;
+    }
+
+    public void updateLandingPageSnapshot(String html, String css, LocalDateTime crawledAt) {
+        this.landingPageHtml = html;
+        this.landingPageCss = css;
         this.landingPageCrawledAt = crawledAt;
     }
 
