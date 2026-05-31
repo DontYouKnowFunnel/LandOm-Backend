@@ -1,13 +1,20 @@
-package knu.dykf.landom.dto.request.project;
+package knu.dykf.landom.dto.project;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import knu.dykf.landom.entity.project.CodeGenerationStatus;
 
 import java.util.List;
 
 public record OptimizationRecommendation(
+        @Schema(description = "개선안 ID", example = "1")
+        Long id,
+
+        @Schema(description = "코드 생성 상태", example = "CODE_NOT_GENERATED")
+        CodeGenerationStatus codeGenerationStatus,
+
         @Schema(description = "개선안 우선순위", example = "1")
         @NotNull
         Integer rank,

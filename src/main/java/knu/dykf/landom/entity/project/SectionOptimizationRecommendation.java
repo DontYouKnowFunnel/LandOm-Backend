@@ -4,6 +4,8 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,7 +14,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import knu.dykf.landom.dto.request.project.OptimizationRecommendation;
+import jakarta.persistence.Lob;
+import knu.dykf.landom.dto.project.OptimizationRecommendation;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -73,6 +76,18 @@ public class SectionOptimizationRecommendation {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String riskOrCaveat;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String generatedHtml;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String generatedCss;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private CodeGenerationStatus codeGenerationStatus = CodeGenerationStatus.CODE_NOT_GENERATED;
+
     public SectionOptimizationRecommendation(Section section, OptimizationRecommendation recommendation) {
         this.section = section;
         this.rank = recommendation.rank();
@@ -86,8 +101,22 @@ public class SectionOptimizationRecommendation {
         this.riskOrCaveat = recommendation.risk_or_caveat();
     }
 
+    public void updateGeneratedCode(String html, String css) {
+        this.generatedHtml = html;
+        this.generatedCss = css;
+        this.codeGenerationStatus = CodeGenerationStatus.CODE_GENERATED;
+    }
+
+    public CodeGenerationStatus getCodeGenerationStatus() {
+        return codeGenerationStatus == null
+                ? CodeGenerationStatus.CODE_NOT_GENERATED
+                : codeGenerationStatus;
+    }
+
     public OptimizationRecommendation toResponse() {
         return new OptimizationRecommendation(
+                id,
+                getCodeGenerationStatus(),
                 rank,
                 title,
                 problem,

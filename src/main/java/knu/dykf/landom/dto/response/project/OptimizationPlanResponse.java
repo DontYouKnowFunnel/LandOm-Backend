@@ -1,7 +1,7 @@
 package knu.dykf.landom.dto.response.project;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import knu.dykf.landom.dto.request.project.OptimizationRecommendation;
+import knu.dykf.landom.dto.project.OptimizationRecommendation;
 
 import java.util.List;
 

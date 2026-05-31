@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/projects/*/optimizations/*/codegen").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/projects/*/optimizations/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/projects/*/analytics/section").permitAll()
                         .requestMatchers("/api/v1/events/**").permitAll()
