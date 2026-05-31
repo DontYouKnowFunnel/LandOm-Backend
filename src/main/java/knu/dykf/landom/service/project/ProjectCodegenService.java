@@ -102,6 +102,21 @@ public class ProjectCodegenService {
     public CodegenResponse getCodegenResult(String username, Long projectId, Long sectionId) {
         getProjectAndValidateOwnership(username, projectId);
         Section section = getSectionInProject(projectId, sectionId);
+
+        return toCodegenResponse(section);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CodegenResponse> getProjectCodegenResults(String username, Long projectId) {
+        getProjectAndValidateOwnership(username, projectId);
+
+        return sectionRepository.findByProjectIdOrderByStepOrderAsc(projectId)
+                .stream()
+                .map(this::toCodegenResponse)
+                .toList();
+    }
+
+    private CodegenResponse toCodegenResponse(Section section) {
         List<String> usedRecommendationTitles = optimizationRecommendationRepository
                 .findBySectionIdOrderByRankAsc(section.getId())
                 .stream()
@@ -110,6 +125,7 @@ public class ProjectCodegenService {
                 .toList();
 
         return new CodegenResponse(
+                section.getId(),
                 usedRecommendationTitles,
                 section.getCodeGeneratedAt(),
                 section.getGeneratedHtml(),

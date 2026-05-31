@@ -6,6 +6,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public record CodegenResponse(
+        @Schema(description = "섹션 ID", example = "1")
+        Long sectionId,
+
         @Schema(description = "코드 생성에 사용된 개선안 제목 목록")
         List<String> usedRecommendationTitles,
 

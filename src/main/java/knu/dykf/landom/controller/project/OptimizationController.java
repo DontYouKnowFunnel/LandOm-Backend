@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "Optimization", description = "섹션 HTML 개선안 관련 API")
 @RestController
 @RequestMapping(value = "/api/v1/projects/{projectId}/optimizations", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -108,5 +110,16 @@ public class OptimizationController {
 
         return ResponseEntity.ok(projectCodegenService.getCodegenResult(
                 userDetails.getUsername(), projectId, sectionId));
+    }
+
+    @Operation(summary = "프로젝트 전체 코드 생성 결과 조회", description = "프로젝트의 모든 섹션에 저장된 생성 HTML/CSS를 조회합니다.")
+    @ApiResponse(responseCode = "200", description = "프로젝트 전체 코드 생성 결과 조회 성공")
+    @GetMapping("/codegen")
+    public ResponseEntity<List<CodegenResponse>> getProjectCodegenResults(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("projectId") Long projectId) {
+
+        return ResponseEntity.ok(projectCodegenService.getProjectCodegenResults(
+                userDetails.getUsername(), projectId));
     }
 }
