@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Lob;
 import knu.dykf.landom.dto.project.OptimizationRecommendation;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -72,6 +73,14 @@ public class SectionOptimizationRecommendation {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String riskOrCaveat;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String generatedHtml;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String generatedCss;
 
     public SectionOptimizationRecommendation(Section section, OptimizationRecommendation recommendation) {
         this.section = section;
