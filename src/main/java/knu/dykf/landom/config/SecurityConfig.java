@@ -2,8 +2,8 @@ package knu.dykf.landom.config;
 
 import jakarta.servlet.http.HttpServletResponse;
 import knu.dykf.landom.exception.ErrorCode;
-import knu.dykf.landom.jwt.JwtAuthenticationFilter;
-import knu.dykf.landom.jwt.JwtUtil;
+import knu.dykf.landom.security.JwtAuthenticationFilter;
+import knu.dykf.landom.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;

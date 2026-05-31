@@ -1,6 +1,6 @@
 package knu.dykf.landom.service.project;
 
-import knu.dykf.landom.dto.request.project.LlmRequest;
+import knu.dykf.landom.dto.llm.LlmRequest;
 import knu.dykf.landom.dto.request.project.ProjectCreateRequest;
 import knu.dykf.landom.dto.request.project.ProjectUpdateRequest;
 import knu.dykf.landom.dto.response.project.ProjectListResponse;

@@ -1,6 +1,5 @@
-package knu.dykf.landom.dto.response.common;
+package knu.dykf.landom.exception;
 
-import knu.dykf.landom.exception.ErrorCode;
 import org.springframework.http.ResponseEntity;
 
 public record ErrorResponse(

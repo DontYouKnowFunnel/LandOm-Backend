@@ -1,4 +1,4 @@
-package knu.dykf.landom.dto.request.project;
+package knu.dykf.landom.dto.llm;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import knu.dykf.landom.entity.project.SectionName;

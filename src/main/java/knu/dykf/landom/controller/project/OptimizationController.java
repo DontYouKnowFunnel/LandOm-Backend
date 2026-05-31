@@ -11,6 +11,7 @@ import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
 import knu.dykf.landom.dto.response.project.CodegenResponse;
 import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
+import knu.dykf.landom.service.project.ProjectCodegenService;
 import knu.dykf.landom.service.project.ProjectOptimizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OptimizationController {
 
     private final ProjectOptimizationService projectOptimizationService;
+    private final ProjectCodegenService projectCodegenService;
 
     @Operation(summary = "섹션 HTML 개선안 생성 요청", description = "섹션 HTML, 최신 방문자 행동 데이터, 페르소나를 LLM 서버로 전달합니다.")
     @ApiResponse(responseCode = "204", description = "개선안 생성 요청 성공")
@@ -79,7 +81,7 @@ public class OptimizationController {
             @PathVariable("projectId") Long projectId,
             @Valid @RequestBody CodegenRequest request) {
 
-        projectOptimizationService.requestCodegen(userDetails.getUsername(), projectId, request);
+        projectCodegenService.requestCodegen(userDetails.getUsername(), projectId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -91,7 +93,7 @@ public class OptimizationController {
             @PathVariable Long optimizationId,
             @Valid @RequestBody CodegenResultRequest request) {
 
-        projectOptimizationService.updateCodegenResult(projectId, optimizationId, request);
+        projectCodegenService.updateCodegenResult(projectId, optimizationId, request);
         return ResponseEntity.noContent().build();
     }
 
@@ -103,7 +105,7 @@ public class OptimizationController {
             @PathVariable("projectId") Long projectId,
             @PathVariable Long optimizationId) {
 
-        return ResponseEntity.ok(projectOptimizationService.getCodegenResult(
+        return ResponseEntity.ok(projectCodegenService.getCodegenResult(
                 userDetails.getUsername(), projectId, optimizationId));
     }
 }
