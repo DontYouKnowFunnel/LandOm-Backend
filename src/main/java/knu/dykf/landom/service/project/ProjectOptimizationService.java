@@ -63,7 +63,10 @@ public class ProjectOptimizationService {
             throw new CustomException(ErrorCode.LANDING_PAGE_SNAPSHOT_NOT_FOUND);
         }
 
-        String sectionHtml = extractSectionHtml(project.getLandingPageHtml(), section.getCssSelector());
+        String sectionHtml = section.getHtml();
+        if (sectionHtml == null || sectionHtml.isBlank()) {
+            sectionHtml = extractSectionHtml(project.getLandingPageHtml(), section.getCssSelector());
+        }
         SectionBehaviorData behaviorData = eventClickHouseRepository.getSectionBehaviorData(
                 project.getApiKey(),
                 section.getCssSelector(),
@@ -85,12 +88,9 @@ public class ProjectOptimizationService {
 
     @Transactional
     public void updateOptimizationPlan(Long projectId, Long sectionId, OptimizationPlanRequest request) {
-        if (!projectId.equals(request.projectId()) || !sectionId.equals(request.sectionId())) {
-            throw new CustomException(ErrorCode.OPTIMIZATION_TARGET_MISMATCH);
-        }
-
         Section section = getSectionInProject(projectId, sectionId);
 
+        section.resetGeneratedCode();
         optimizationRecommendationRepository.deleteBySectionId(section.getId());
         List<SectionOptimizationRecommendation> recommendations = request.recommendations()
                 .stream()
