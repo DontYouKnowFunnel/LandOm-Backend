@@ -1,7 +1,7 @@
-package knu.dykf.landom.dto.request.project;
+package knu.dykf.landom.dto.llm;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import knu.dykf.landom.dto.project.OptimizationRecommendation;
+import knu.dykf.landom.dto.response.project.OptimizationRecommendationResponse;
 
 public record LlmCodegenRequest(
         @Schema(description = "프로젝트 ID", example = "1")
@@ -20,6 +20,6 @@ public record LlmCodegenRequest(
         String sectionCss,
 
         @Schema(description = "코드 생성에 사용할 개선안 JSON")
-        OptimizationRecommendation optimizationPlan
+        OptimizationRecommendationResponse optimizationPlan
 ) {
 }

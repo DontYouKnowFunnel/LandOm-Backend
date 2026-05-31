@@ -1,4 +1,4 @@
-package knu.dykf.landom.jwt;
+package knu.dykf.landom.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

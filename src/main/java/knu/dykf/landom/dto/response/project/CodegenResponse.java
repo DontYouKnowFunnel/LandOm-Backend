@@ -7,6 +7,6 @@ public record CodegenResponse(
         String generatedHtml,
 
         @Schema(description = "개선안이 적용된 CSS", example = ".hero { ... }")
-        String generartedCss
+        String generatedCss
 ) {
 }

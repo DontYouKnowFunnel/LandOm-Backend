@@ -1,13 +1,9 @@
 package knu.dykf.landom.service.project;
 
-import knu.dykf.landom.dto.project.OptimizationRecommendation;
-import knu.dykf.landom.dto.request.project.CodegenRequest;
-import knu.dykf.landom.dto.request.project.CodegenResultRequest;
-import knu.dykf.landom.dto.request.project.LlmCodegenRequest;
-import knu.dykf.landom.dto.request.project.LlmOptimizationRequest;
+import knu.dykf.landom.dto.response.project.OptimizationRecommendationResponse;
+import knu.dykf.landom.dto.llm.LlmOptimizationRequest;
 import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
-import knu.dykf.landom.dto.response.project.CodegenResponse;
 import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
@@ -47,7 +43,7 @@ public class ProjectOptimizationService {
         getProjectAndValidateOwnership(username, projectId);
         Section section = getSectionInProject(projectId, sectionId);
 
-        List<OptimizationRecommendation> recommendations = optimizationRecommendationRepository
+        List<OptimizationRecommendationResponse> recommendations = optimizationRecommendationRepository
                 .findBySectionIdOrderByRankAsc(section.getId())
                 .stream()
                 .map(SectionOptimizationRecommendation::toResponse)
@@ -103,53 +99,6 @@ public class ProjectOptimizationService {
         optimizationRecommendationRepository.saveAll(recommendations);
     }
 
-    @Transactional(readOnly = true)
-    public void requestCodegen(String username, Long projectId, CodegenRequest request) {
-        Project project = getProjectAndValidateOwnership(username, projectId);
-
-        if (project.getLandingPageHtml() == null
-                || project.getLandingPageHtml().isBlank()
-                || project.getLandingPageCrawledAt() == null) {
-            throw new CustomException(ErrorCode.LANDING_PAGE_SNAPSHOT_NOT_FOUND);
-        }
-
-        RestTemplate restTemplate = new RestTemplate();
-        for (Long optimizationId : request.optimizationIds().stream().distinct().toList()) {
-            SectionOptimizationRecommendation recommendation = getOptimizationInProject(projectId, optimizationId);
-            Section section = recommendation.getSection();
-            String sectionHtml = extractSectionHtml(project.getLandingPageHtml(), section.getCssSelector());
-            String sectionCss = section.getCssRules() == null ? "" : section.getCssRules();
-
-            LlmCodegenRequest llmRequest = new LlmCodegenRequest(
-                    projectId,
-                    section.getId(),
-                    recommendation.getId(),
-                    sectionHtml,
-                    sectionCss,
-                    recommendation.toResponse()
-            );
-
-            restTemplate.postForEntity(llmServerUrl + "/api/v1/funnels/codegen", llmRequest, Void.class);
-        }
-    }
-
-    @Transactional
-    public void updateCodegenResult(Long projectId, Long optimizationId, CodegenResultRequest request) {
-        SectionOptimizationRecommendation recommendation = getOptimizationInProject(projectId, optimizationId);
-        recommendation.updateGeneratedCode(request.html(), request.css());
-    }
-
-    @Transactional(readOnly = true)
-    public CodegenResponse getCodegenResult(String username, Long projectId, Long optimizationId) {
-        getProjectAndValidateOwnership(username, projectId);
-        SectionOptimizationRecommendation recommendation = getOptimizationInProject(projectId, optimizationId);
-
-        return new CodegenResponse(
-                recommendation.getGeneratedHtml(),
-                recommendation.getGeneratedCss()
-        );
-    }
-
     private Project getProjectAndValidateOwnership(String username, Long projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
@@ -164,11 +113,6 @@ public class ProjectOptimizationService {
     private Section getSectionInProject(Long projectId, Long sectionId) {
         return sectionRepository.findByIdAndProjectId(sectionId, projectId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
-    }
-
-    private SectionOptimizationRecommendation getOptimizationInProject(Long projectId, Long optimizationId) {
-        return optimizationRecommendationRepository.findByIdAndSection_Project_Id(optimizationId, projectId)
-                .orElseThrow(() -> new CustomException(ErrorCode.OPTIMIZATION_NOT_FOUND));
     }
 
     private String extractSectionHtml(String html, String cssSelector) {

@@ -15,7 +15,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Lob;
-import knu.dykf.landom.dto.project.OptimizationRecommendation;
+import knu.dykf.landom.dto.request.project.OptimizationRecommendationRequest;
+import knu.dykf.landom.dto.response.project.OptimizationRecommendationResponse;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -88,7 +89,7 @@ public class SectionOptimizationRecommendation {
     @Column(length = 32)
     private CodeGenerationStatus codeGenerationStatus = CodeGenerationStatus.CODE_NOT_GENERATED;
 
-    public SectionOptimizationRecommendation(Section section, OptimizationRecommendation recommendation) {
+    public SectionOptimizationRecommendation(Section section, OptimizationRecommendationRequest recommendation) {
         this.section = section;
         this.rank = recommendation.rank();
         this.title = recommendation.title();
@@ -113,8 +114,8 @@ public class SectionOptimizationRecommendation {
                 : codeGenerationStatus;
     }
 
-    public OptimizationRecommendation toResponse() {
-        return new OptimizationRecommendation(
+    public OptimizationRecommendationResponse toResponse() {
+        return new OptimizationRecommendationResponse(
                 id,
                 getCodeGenerationStatus(),
                 rank,
