@@ -11,4 +11,6 @@ public interface SectionOptimizationRecommendationRepository
     List<SectionOptimizationRecommendation> findBySectionIdOrderByRankAsc(Long sectionId);
 
     void deleteBySectionId(Long sectionId);
+
+    void deleteBySection_Project_Id(Long projectId);
 }
