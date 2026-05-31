@@ -3,6 +3,7 @@ package knu.dykf.landom.service.analytics;
 import knu.dykf.landom.dto.request.analytics.SectionRequest;
 import knu.dykf.landom.dto.response.analytics.FunnelResponse;
 import knu.dykf.landom.dto.response.analytics.ReplayResponse;
+import knu.dykf.landom.dto.response.analytics.SectionSourceResponse;
 import knu.dykf.landom.dto.response.analytics.SessionListResponse;
 import knu.dykf.landom.dto.response.analytics.SummaryResponse;
 import knu.dykf.landom.dto.response.analytics.TrendsResponse;
@@ -14,6 +15,7 @@ import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
 import knu.dykf.landom.repository.project.ProjectRepository;
 import knu.dykf.landom.repository.project.SectionRepository;
+import knu.dykf.landom.service.project.SectionSourceExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,7 @@ public class AnalyticsService {
     private final EventClickHouseRepository eventClickHouseRepository;
     private final SectionRepository sectionRepository;
     private final ProjectRepository projectRepository;
+    private final SectionSourceExtractor sectionSourceExtractor;
 
     @Transactional
     public void saveProjectSections(Long projectId, SectionRequest request) {
@@ -51,6 +54,7 @@ public class AnalyticsService {
                         .project(project)
                         .name(step.name())
                         .cssSelector(step.selector())
+                        .cssRules(extractSectionCssRules(project, step.selector()))
                         .stepOrder(step.stepOrder())
                         .build())
                 .toList();
@@ -103,6 +107,37 @@ public class AnalyticsService {
         }
 
         return new FunnelResponse(status, totalSessions, funnelDataList);
+    }
+
+    public SectionSourceResponse getSectionSource(String username, Long projectId, Long sectionId) {
+        Project project = getProjectAndValidateOwnership(username, projectId);
+        Section section = getSectionInProject(projectId, sectionId);
+
+        if (project.getLandingPageHtml() == null || project.getLandingPageHtml().isBlank()) {
+            throw new CustomException(ErrorCode.LANDING_PAGE_SNAPSHOT_NOT_FOUND);
+        }
+
+        String html = sectionSourceExtractor.extractSectionHtml(
+                project.getLandingPageHtml(),
+                section.getCssSelector()
+        );
+        String cssRules = section.getCssRules();
+        // 예전 데이터에 부정확한 CSS가 저장돼 있을 수 있어 전체 CSS 스냅샷이 있으면 조회 시점에 다시 추출한다.
+        if (project.getLandingPageCss() != null && !project.getLandingPageCss().isBlank()) {
+            cssRules = sectionSourceExtractor.extractSectionCssRules(
+                    project.getLandingPageHtml(),
+                    project.getLandingPageCss(),
+                    section.getCssSelector()
+            );
+        }
+
+        return new SectionSourceResponse(
+                section.getId(),
+                section.getName(),
+                section.getCssSelector(),
+                html,
+                cssRules == null ? "" : cssRules
+        );
     }
 
     private FunnelResponse.Status mapStatus(FunnelAnalysisStatus status) {
@@ -215,6 +250,31 @@ public class AnalyticsService {
         }
 
         return project;
+    }
+
+    private Section getSectionInProject(Long projectId, Long sectionId) {
+        return sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+    }
+
+    private String extractSectionCssRules(Project project, String selector) {
+        // 크롤링 전이거나 CSS 수집에 실패한 경우에도 섹션 저장 자체는 계속 진행한다.
+        if (project.getLandingPageHtml() == null
+                || project.getLandingPageHtml().isBlank()
+                || project.getLandingPageCss() == null
+                || project.getLandingPageCss().isBlank()) {
+            return "";
+        }
+
+        try {
+            return sectionSourceExtractor.extractSectionCssRules(
+                    project.getLandingPageHtml(),
+                    project.getLandingPageCss(),
+                    selector
+            );
+        } catch (CustomException e) {
+            return "";
+        }
     }
 
     private void validateSessionQuery(LocalDate startDate, LocalDate endDate, int limit) {

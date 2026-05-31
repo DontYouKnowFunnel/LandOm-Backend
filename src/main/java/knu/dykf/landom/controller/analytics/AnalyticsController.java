@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import knu.dykf.landom.dto.request.analytics.SectionRequest;
 import knu.dykf.landom.dto.response.analytics.FunnelResponse;
 import knu.dykf.landom.dto.response.analytics.ReplayResponse;
+import knu.dykf.landom.dto.response.analytics.SectionSourceResponse;
 import knu.dykf.landom.dto.response.analytics.SessionListResponse;
 import knu.dykf.landom.dto.response.analytics.SummaryResponse;
 import knu.dykf.landom.dto.response.analytics.TrendsResponse;
@@ -37,6 +38,22 @@ public class AnalyticsController {
 
         FunnelResponse response = analyticsService.getFunnelAnalytics(userDetails.getUsername(), projectId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "퍼널 섹션 HTML 및 CSS 룰 조회", description = "특정 퍼널 섹션의 HTML과 저장된 CSS 룰을 조회합니다.")
+    @GetMapping("/sections/{sectionId}/source")
+    public ResponseEntity<SectionSourceResponse> getSectionSource(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Parameter(description = "프로젝트 ID", example = "1")
+            @PathVariable("projectId") Long projectId,
+            @Parameter(description = "섹션 ID", example = "1")
+            @PathVariable("sectionId") Long sectionId) {
+
+        return ResponseEntity.ok(analyticsService.getSectionSource(
+                userDetails.getUsername(),
+                projectId,
+                sectionId
+        ));
     }
 
     @Operation(summary = "최근 세션 리스트 조회", description = "프로젝트에 접속한 최근 세션들의 상세 정보와 탐색 상태를 조회합니다.")
