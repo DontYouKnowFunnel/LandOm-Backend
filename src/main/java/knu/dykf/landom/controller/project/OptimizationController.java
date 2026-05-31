@@ -5,8 +5,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import knu.dykf.landom.dto.request.project.CodegenRequest;
+import knu.dykf.landom.dto.request.project.CodegenResultRequest;
 import knu.dykf.landom.dto.request.project.OptimizationPlanRequest;
 import knu.dykf.landom.dto.request.project.OptimizationRequest;
+import knu.dykf.landom.dto.response.project.CodegenResponse;
 import knu.dykf.landom.dto.response.project.OptimizationPlanResponse;
 import knu.dykf.landom.service.project.ProjectOptimizationService;
 import lombok.RequiredArgsConstructor;
@@ -66,5 +69,41 @@ public class OptimizationController {
 
         projectOptimizationService.updateOptimizationPlan(projectId, sectionId, request);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "개선안 기반 코드 생성 요청", description = "개선안 ID 목록을 LLM 서버로 전달해 개선안이 적용된 HTML/CSS 생성을 요청합니다.")
+    @ApiResponse(responseCode = "204", description = "코드 생성 요청 성공")
+    @PostMapping("/codegen")
+    public ResponseEntity<Void> requestCodegen(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("projectId") Long projectId,
+            @Valid @RequestBody CodegenRequest request) {
+
+        projectOptimizationService.requestCodegen(userDetails.getUsername(), projectId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "개선안 기반 코드 생성 결과 저장", description = "LLM 서버가 생성한 HTML/CSS를 개선안에 저장합니다.")
+    @ApiResponse(responseCode = "204", description = "코드 생성 결과 저장 성공")
+    @PatchMapping("/{optimizationId}/codegen")
+    public ResponseEntity<Void> updateCodegenResult(
+            @PathVariable("projectId") Long projectId,
+            @PathVariable Long optimizationId,
+            @Valid @RequestBody CodegenResultRequest request) {
+
+        projectOptimizationService.updateCodegenResult(projectId, optimizationId, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "개선안 기반 코드 생성 결과 조회", description = "개선안에 저장된 생성 HTML/CSS를 조회합니다.")
+    @ApiResponse(responseCode = "200", description = "코드 생성 결과 조회 성공")
+    @GetMapping("/{optimizationId}/codegen")
+    public ResponseEntity<CodegenResponse> getCodegenResult(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable("projectId") Long projectId,
+            @PathVariable Long optimizationId) {
+
+        return ResponseEntity.ok(projectOptimizationService.getCodegenResult(
+                userDetails.getUsername(), projectId, optimizationId));
     }
 }

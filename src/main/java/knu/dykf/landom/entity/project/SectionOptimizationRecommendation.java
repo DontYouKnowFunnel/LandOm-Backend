@@ -95,6 +95,11 @@ public class SectionOptimizationRecommendation {
         this.riskOrCaveat = recommendation.risk_or_caveat();
     }
 
+    public void updateGeneratedCode(String html, String css) {
+        this.generatedHtml = html;
+        this.generatedCss = css;
+    }
+
     public OptimizationRecommendation toResponse() {
         return new OptimizationRecommendation(
                 id,
