@@ -49,7 +49,7 @@ public class ProjectOptimizationService {
                 .map(SectionOptimizationRecommendation::toResponse)
                 .toList();
 
-        return new OptimizationPlanResponse(recommendations);
+        return new OptimizationPlanResponse(section.getCodeGenerationStatus(), recommendations);
     }
 
     @Transactional(readOnly = true)
