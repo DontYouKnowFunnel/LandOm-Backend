@@ -1,7 +1,7 @@
 package knu.dykf.landom.dto.response.project;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import knu.dykf.landom.entity.project.CodeGenerationStatus;
+import knu.dykf.landom.entity.project.RecommendationUsageStatus;
 
 import java.util.List;
 
@@ -9,8 +9,8 @@ public record OptimizationRecommendationResponse(
         @Schema(description = "개선안 ID", example = "1")
         Long id,
 
-        @Schema(description = "코드 생성 상태", example = "CODE_NOT_GENERATED")
-        CodeGenerationStatus codeGenerationStatus,
+        @Schema(description = "코드 생성 요청에 사용된 개선안 여부", example = "UNUSED")
+        RecommendationUsageStatus usageStatus,
 
         @Schema(description = "개선안 우선순위", example = "1")
         Integer rank,

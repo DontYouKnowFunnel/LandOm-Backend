@@ -14,7 +14,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
-import jakarta.persistence.Lob;
 import knu.dykf.landom.dto.request.project.OptimizationRecommendationRequest;
 import knu.dykf.landom.dto.response.project.OptimizationRecommendationResponse;
 import lombok.AccessLevel;
@@ -77,17 +76,9 @@ public class SectionOptimizationRecommendation {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String riskOrCaveat;
 
-    @Lob
-    @Column(columnDefinition = "LONGTEXT")
-    private String generatedHtml;
-
-    @Lob
-    @Column(columnDefinition = "LONGTEXT")
-    private String generatedCss;
-
     @Enumerated(EnumType.STRING)
-    @Column(length = 32)
-    private CodeGenerationStatus codeGenerationStatus = CodeGenerationStatus.CODE_NOT_GENERATED;
+    @Column(length = 16)
+    private RecommendationUsageStatus usageStatus = RecommendationUsageStatus.UNUSED;
 
     public SectionOptimizationRecommendation(Section section, OptimizationRecommendationRequest recommendation) {
         this.section = section;
@@ -102,22 +93,22 @@ public class SectionOptimizationRecommendation {
         this.riskOrCaveat = recommendation.risk_or_caveat();
     }
 
-    public void updateGeneratedCode(String html, String css) {
-        this.generatedHtml = html;
-        this.generatedCss = css;
-        this.codeGenerationStatus = CodeGenerationStatus.CODE_GENERATED;
+    public void markUsed() {
+        this.usageStatus = RecommendationUsageStatus.USED;
     }
 
-    public CodeGenerationStatus getCodeGenerationStatus() {
-        return codeGenerationStatus == null
-                ? CodeGenerationStatus.CODE_NOT_GENERATED
-                : codeGenerationStatus;
+    public void markUnused() {
+        this.usageStatus = RecommendationUsageStatus.UNUSED;
+    }
+
+    public RecommendationUsageStatus getUsageStatus() {
+        return usageStatus == null ? RecommendationUsageStatus.UNUSED : usageStatus;
     }
 
     public OptimizationRecommendationResponse toResponse() {
         return new OptimizationRecommendationResponse(
                 id,
-                getCodeGenerationStatus(),
+                getUsageStatus(),
                 rank,
                 title,
                 problem,
