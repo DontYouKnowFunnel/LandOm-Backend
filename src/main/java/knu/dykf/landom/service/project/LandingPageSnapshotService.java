@@ -19,9 +19,14 @@ public class LandingPageSnapshotService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveSnapshot(Long projectId, String html) {
+        saveSnapshot(projectId, html, null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveSnapshot(Long projectId, String html, String css) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PROJECT_NOT_FOUND));
 
-        project.updateLandingPageSnapshot(html, LocalDateTime.now());
+        project.updateLandingPageSnapshot(html, css, LocalDateTime.now());
     }
 }

@@ -130,13 +130,13 @@ public class ProjectService {
         funnelAnalysisTimeoutService.scheduleTimeout(projectId);
 
         String targetUrl = project.getUrl();
-        String html = crawlingService.crawlLandingPage(targetUrl);
-        landingPageSnapshotService.saveSnapshot(projectId, html);
+        CrawlingService.LandingPageSnapshot snapshot = crawlingService.crawlLandingPageSnapshot(targetUrl);
+        landingPageSnapshotService.saveSnapshot(projectId, snapshot.html(), snapshot.css());
 
         String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
 
         RestTemplate restTemplate = new RestTemplate();
-        LlmRequest request = new LlmRequest(projectId, html);
+        LlmRequest request = new LlmRequest(projectId, snapshot.html());
 
         restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
     }

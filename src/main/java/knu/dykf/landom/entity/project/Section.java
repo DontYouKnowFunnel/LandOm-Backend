@@ -28,14 +28,19 @@ public class Section {
     @Column(nullable = false)
     private String cssSelector;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String cssRules;
+
     @Column(nullable = false)
     private int stepOrder; // 퍼널 순서 (1, 2, 3...)
 
     @Builder
-    public Section(Project project, SectionName name, String cssSelector, int stepOrder) {
+    public Section(Project project, SectionName name, String cssSelector, String cssRules, int stepOrder) {
         this.project = project;
         this.name = name;
         this.cssSelector = cssSelector;
+        this.cssRules = cssRules;
         this.stepOrder = stepOrder;
     }
 }
