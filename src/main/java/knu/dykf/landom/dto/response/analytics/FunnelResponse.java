@@ -31,6 +31,9 @@ public record FunnelResponse(
             @Schema(description = "섹션 이름", example = "HERO", implementation = SectionName.class)
             SectionName sectionName,
 
+            @Schema(description = "CSS 선택자", example = "section.hero")
+            String selector,
+
             @Schema(description = "해당 섹션에 도달한 고유 세션 수", example = "10248")
             long reachedUserCount,
 

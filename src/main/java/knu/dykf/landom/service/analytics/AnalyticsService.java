@@ -92,6 +92,7 @@ public class AnalyticsService {
             funnelDataList.add(new FunnelResponse.FunnelData(
                     section.getId(),
                     section.getName(),
+                    section.getCssSelector(),
                     reachedCount,
                     reachRate,
                     dropRate,
