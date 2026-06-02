@@ -12,6 +12,7 @@ import knu.dykf.landom.dto.response.analytics.SessionListResponse;
 import knu.dykf.landom.dto.response.analytics.SummaryResponse;
 import knu.dykf.landom.dto.response.analytics.TrendsResponse;
 import knu.dykf.landom.service.analytics.AnalyticsService;
+import knu.dykf.landom.service.analytics.FunnelSectionAsyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ import java.time.LocalDate;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    private final FunnelSectionAsyncService funnelSectionAsyncService;
 
     @Operation(summary = "퍼널 분석 데이터 조회", description = "프로젝트의 설정된 섹션별 도달률, 이탈률 및 평균 체류 시간을 조회합니다.")
     @GetMapping("/funnel")
@@ -123,7 +125,8 @@ public class AnalyticsController {
             @Parameter(description = "프로젝트 ID") @PathVariable("projectId") Long projectId,
             @Valid @RequestBody SectionRequest request) {
 
-        analyticsService.saveProjectSections(projectId, request);
-        return ResponseEntity.noContent().build();
+        analyticsService.validateProjectExists(projectId);
+        funnelSectionAsyncService.saveProjectSections(projectId, request);
+        return ResponseEntity.accepted().build();
     }
 }
