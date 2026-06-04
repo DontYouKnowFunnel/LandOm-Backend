@@ -9,7 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "sections")
+@Table(
+        name = "sections",
+        indexes = {
+                @Index(name = "idx_sections_project_step", columnList = "project_id, step_order")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Section {

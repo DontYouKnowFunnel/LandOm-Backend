@@ -10,6 +10,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
@@ -24,7 +25,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "optimization_recommendations")
+@Table(
+        name = "optimization_recommendations",
+        indexes = {
+                @Index(
+                        name = "idx_opt_recs_section_rank",
+                        columnList = "section_id, recommendation_rank"
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SectionOptimizationRecommendation {
@@ -49,7 +58,13 @@ public class SectionOptimizationRecommendation {
     @ElementCollection
     @CollectionTable(
             name = "optimization_recommendation_changes",
-            joinColumns = @JoinColumn(name = "recommendation_id")
+            joinColumns = @JoinColumn(name = "recommendation_id"),
+            indexes = {
+                    @Index(
+                            name = "idx_opt_rec_changes_rec_order",
+                            columnList = "recommendation_id, item_order"
+                    )
+            }
     )
     @OrderColumn(name = "item_order")
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
@@ -61,7 +76,13 @@ public class SectionOptimizationRecommendation {
     @ElementCollection
     @CollectionTable(
             name = "optimization_recommendation_copy_directions",
-            joinColumns = @JoinColumn(name = "recommendation_id")
+            joinColumns = @JoinColumn(name = "recommendation_id"),
+            indexes = {
+                    @Index(
+                            name = "idx_opt_rec_copy_dirs_rec_order",
+                            columnList = "recommendation_id, item_order"
+                    )
+            }
     )
     @OrderColumn(name = "item_order")
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")

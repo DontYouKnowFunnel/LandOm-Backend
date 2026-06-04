@@ -83,21 +83,22 @@ public class AnalyticsService {
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
+        List<EventClickHouseRepository.FunnelSectionStats> sectionStats =
+                eventClickHouseRepository.getFunnelSectionStats(
+                        apiKey,
+                        sections.stream()
+                                .map(Section::getCssSelector)
+                                .toList()
+                );
 
         List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
         long previousReachedCount = totalSessions;
 
         for (int index = 0; index < sections.size(); index++) {
             Section section = sections.get(index);
-            List<String> reachedSectionSelectors = sections.subList(index, sections.size()).stream()
-                    .map(Section::getCssSelector)
-                    .toList();
-
-            Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
-                    apiKey, reachedSectionSelectors, section.getCssSelector());
-
-            long reachedCount = getLong(stats, "reached_count");
-            double avgDurationSeconds = getDouble(stats, "avg_duration");
+            EventClickHouseRepository.FunnelSectionStats stats = sectionStats.get(index);
+            long reachedCount = stats.reachedCount();
+            double avgDurationSeconds = stats.avgDurationSeconds();
 
             double reachRate = totalSessions == 0 ? 0 : Math.round((double) reachedCount / totalSessions * 100.0) / 100.0;
             double dropRate = previousReachedCount == 0 ? 0 :
