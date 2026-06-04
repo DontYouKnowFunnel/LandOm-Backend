@@ -70,6 +70,7 @@ services:
       - .env
     environment:
       CLICKHOUSE_SCHEMA_PATH: file:/app/init-db/init-clickhouse.sql
+      LANDOM_SESSION_STATUS_TIMEOUT_ENABLED: ${LANDOM_SESSION_STATUS_TIMEOUT_ENABLED:-true}
     volumes:
       - ./init-db:/app/init-db:ro
 
