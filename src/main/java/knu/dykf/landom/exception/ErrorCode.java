@@ -16,6 +16,11 @@ public enum ErrorCode {
 
     // Project
     PROJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "프로젝트를 찾을 수 없습니다."),
+    SECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "섹션을 찾을 수 없습니다."),
+    LANDING_PAGE_SNAPSHOT_NOT_FOUND(HttpStatus.BAD_REQUEST, "저장된 랜딩 페이지 HTML이 없습니다."),
+    SECTION_HTML_NOT_FOUND(HttpStatus.BAD_REQUEST, "섹션에 해당하는 HTML을 찾을 수 없습니다."),
+    OPTIMIZATION_NOT_FOUND(HttpStatus.NOT_FOUND, "개선안을 찾을 수 없습니다."),
+    OPTIMIZATION_TARGET_MISMATCH(HttpStatus.BAD_REQUEST, "개선안 저장 대상이 요청 경로와 일치하지 않습니다."),
 
     // Token
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "토큰이 유효하지 않거나 만료되었습니다."),

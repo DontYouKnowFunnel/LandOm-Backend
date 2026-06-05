@@ -1,4 +1,4 @@
-package knu.dykf.landom.jwt;
+package knu.dykf.landom.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

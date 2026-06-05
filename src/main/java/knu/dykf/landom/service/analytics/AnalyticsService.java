@@ -3,26 +3,30 @@ package knu.dykf.landom.service.analytics;
 import knu.dykf.landom.dto.request.analytics.SectionRequest;
 import knu.dykf.landom.dto.response.analytics.FunnelResponse;
 import knu.dykf.landom.dto.response.analytics.ReplayResponse;
+import knu.dykf.landom.dto.response.analytics.SectionSourceResponse;
 import knu.dykf.landom.dto.response.analytics.SessionListResponse;
 import knu.dykf.landom.dto.response.analytics.SummaryResponse;
 import knu.dykf.landom.dto.response.analytics.TrendsResponse;
 import knu.dykf.landom.entity.project.FunnelAnalysisStatus;
 import knu.dykf.landom.entity.project.Project;
 import knu.dykf.landom.entity.project.Section;
-import knu.dykf.landom.entity.project.SectionName;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.event.EventClickHouseRepository;
 import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionOptimizationRecommendationRepository;
 import knu.dykf.landom.repository.project.SectionRepository;
+import knu.dykf.landom.service.project.SectionSourceExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,11 +37,20 @@ public class AnalyticsService {
 
     private final EventClickHouseRepository eventClickHouseRepository;
     private final SectionRepository sectionRepository;
+    private final SectionOptimizationRecommendationRepository optimizationRecommendationRepository;
     private final ProjectRepository projectRepository;
+    private final SectionSourceExtractor sectionSourceExtractor;
+
+    public void validateProjectExists(Long projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new CustomException(ErrorCode.PROJECT_NOT_FOUND);
+        }
+    }
 
     @Transactional
     public void saveProjectSections(Long projectId, SectionRequest request) {
         // 1. 해당 프로젝트의 기존 섹션 설정 삭제
+        optimizationRecommendationRepository.deleteBySection_Project_Id(projectId);
         sectionRepository.deleteByProjectId(projectId);
 
         Project project = projectRepository.findById(projectId)
@@ -50,6 +63,8 @@ public class AnalyticsService {
                         .project(project)
                         .name(step.name())
                         .cssSelector(step.selector())
+                        .html(extractSectionHtml(project, step.selector()))
+                        .cssRules(extractSectionCssRules(project, step.selector()))
                         .stepOrder(step.stepOrder())
                         .build())
                 .toList();
@@ -68,28 +83,31 @@ public class AnalyticsService {
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
         long totalSessions = eventClickHouseRepository.getTotalSessionCount(apiKey);
+        List<EventClickHouseRepository.FunnelSectionStats> sectionStats =
+                eventClickHouseRepository.getFunnelSectionStats(
+                        apiKey,
+                        sections.stream()
+                                .map(Section::getCssSelector)
+                                .toList()
+                );
 
         List<FunnelResponse.FunnelData> funnelDataList = new ArrayList<>();
         long previousReachedCount = totalSessions;
 
         for (int index = 0; index < sections.size(); index++) {
             Section section = sections.get(index);
-            List<String> reachedSectionSelectors = sections.subList(index, sections.size()).stream()
-                    .map(Section::getCssSelector)
-                    .toList();
-
-            Map<String, Object> stats = eventClickHouseRepository.getSectionStats(
-                    apiKey, reachedSectionSelectors);
-
-            long reachedCount = getLong(stats, "reached_count");
-            double avgDurationSeconds = getDouble(stats, "avg_duration");
+            EventClickHouseRepository.FunnelSectionStats stats = sectionStats.get(index);
+            long reachedCount = stats.reachedCount();
+            double avgDurationSeconds = stats.avgDurationSeconds();
 
             double reachRate = totalSessions == 0 ? 0 : Math.round((double) reachedCount / totalSessions * 100.0) / 100.0;
             double dropRate = previousReachedCount == 0 ? 0 :
                     Math.round((double) (previousReachedCount - reachedCount) / previousReachedCount * 100.0) / 100.0;
 
             funnelDataList.add(new FunnelResponse.FunnelData(
+                    section.getId(),
                     section.getName(),
+                    section.getCssSelector(),
                     reachedCount,
                     reachRate,
                     dropRate,
@@ -102,6 +120,58 @@ public class AnalyticsService {
         return new FunnelResponse(status, totalSessions, funnelDataList);
     }
 
+    @Transactional
+    public SectionSourceResponse getSectionSource(String username, Long projectId, Long sectionId) {
+        Project project = getProjectAndValidateOwnership(username, projectId);
+        Section section = getSectionInProject(projectId, sectionId);
+
+        if (project.getLandingPageHtml() == null || project.getLandingPageHtml().isBlank()) {
+            throw new CustomException(ErrorCode.LANDING_PAGE_SNAPSHOT_NOT_FOUND);
+        }
+
+        String html = section.getHtml();
+        String cssRules = section.getCssRules();
+
+        if (html == null || html.isBlank()) {
+            html = sectionSourceExtractor.extractSectionHtml(
+                    project.getLandingPageHtml(),
+                    section.getCssSelector()
+            );
+            section.updateSource(html, cssRules);
+        }
+
+        if ((cssRules == null || cssRules.isBlank())
+                && project.getLandingPageCss() != null
+                && !project.getLandingPageCss().isBlank()) {
+            cssRules = sectionSourceExtractor.extractSectionCssRules(
+                    project.getLandingPageHtml(),
+                    project.getLandingPageCss(),
+                    section.getCssSelector()
+            );
+            section.updateSource(html, cssRules);
+        }
+
+        return new SectionSourceResponse(
+                section.getId(),
+                section.getName(),
+                section.getCssSelector(),
+                html,
+                cssRules == null ? "" : cssRules
+        );
+    }
+
+    private String extractSectionHtml(Project project, String cssSelector) {
+        if (project.getLandingPageHtml() == null || project.getLandingPageHtml().isBlank()) {
+            return "";
+        }
+
+        try {
+            return sectionSourceExtractor.extractSectionHtml(project.getLandingPageHtml(), cssSelector);
+        } catch (CustomException e) {
+            return "";
+        }
+    }
+
     private FunnelResponse.Status mapStatus(FunnelAnalysisStatus status) {
         return switch (status) {
             case IN_PROGRESS -> FunnelResponse.Status.IN_PROGRESS;
@@ -111,14 +181,33 @@ public class AnalyticsService {
         };
     }
 
-    public SessionListResponse getRecentSessions(String username, Long id, int limit) {
+    public SessionListResponse getRecentSessions(
+            String username,
+            Long id,
+            Long sectionId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String status,
+            int limit
+    ) {
+        validateSessionQuery(startDate, endDate, limit);
 
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
         List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
-        String ctaSectionSelector = findCtaSectionSelector(sections);
+        String sectionSelector = resolveSectionSelector(project.getId(), sectionId);
+        String normalizedStatus = normalizeSessionStatus(status);
+        LocalDateTime startDateTime = startDate == null ? null : startDate.atStartOfDay();
+        LocalDateTime endDateTimeExclusive = endDate == null ? null : endDate.plusDays(1).atStartOfDay();
         List<EventClickHouseRepository.SessionSummaryDto> rawSessions =
-                eventClickHouseRepository.getRecentSessions(apiKey, ctaSectionSelector, limit);
+                eventClickHouseRepository.getRecentSessions(
+                        apiKey,
+                        sectionSelector,
+                        startDateTime,
+                        endDateTimeExclusive,
+                        normalizedStatus,
+                        limit
+                );
 
         List<SessionListResponse.SessionDto> dtoList = rawSessions.stream()
                 .map(raw -> mapToDto(raw, sections))
@@ -138,8 +227,7 @@ public class AnalyticsService {
             return new SummaryResponse(0, 0, 0.0, "00:00");
         }
 
-        String ctaSectionSelector = findCtaSectionSelector(sections);
-        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey, ctaSectionSelector);
+        Map<String, Object> stats = eventClickHouseRepository.getSummaryStats(apiKey);
 
         long totalSessions = getLong(stats, "total_sessions");
         long convertedSessions = getLong(stats, "converted_sessions");
@@ -160,11 +248,8 @@ public class AnalyticsService {
 
         Project project = getProjectAndValidateOwnership(username, id);
         String apiKey = project.getApiKey();
-        List<Section> sections = sectionRepository.findByProjectIdOrderByStepOrderAsc(project.getId());
-        String ctaSectionSelector = findCtaSectionSelector(sections);
-
         List<EventClickHouseRepository.TrendRawDto> rawTrends =
-                eventClickHouseRepository.getWeeklyTrends(apiKey, ctaSectionSelector);
+                eventClickHouseRepository.getWeeklyTrends(apiKey);
 
         List<TrendsResponse.TrendUnit<Integer>> scores = new ArrayList<>();
         List<TrendsResponse.TrendUnit<Double>> conversionRates = new ArrayList<>();
@@ -199,6 +284,65 @@ public class AnalyticsService {
         return project;
     }
 
+    private Section getSectionInProject(Long projectId, Long sectionId) {
+        return sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+    }
+
+    private String extractSectionCssRules(Project project, String selector) {
+        // 크롤링 전이거나 CSS 수집에 실패한 경우에도 섹션 저장 자체는 계속 진행한다.
+        if (project.getLandingPageHtml() == null
+                || project.getLandingPageHtml().isBlank()
+                || project.getLandingPageCss() == null
+                || project.getLandingPageCss().isBlank()) {
+            return "";
+        }
+
+        try {
+            return sectionSourceExtractor.extractSectionCssRules(
+                    project.getLandingPageHtml(),
+                    project.getLandingPageCss(),
+                    selector
+            );
+        } catch (CustomException e) {
+            return "";
+        }
+    }
+
+    private void validateSessionQuery(LocalDate startDate, LocalDate endDate, int limit) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        if (limit <= 0) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private String resolveSectionSelector(Long projectId, Long sectionId) {
+        if (sectionId == null) {
+            return null;
+        }
+
+        return sectionRepository.findByIdAndProjectId(sectionId, projectId)
+                .map(Section::getCssSelector)
+                .orElseThrow(() -> new CustomException(ErrorCode.SECTION_NOT_FOUND));
+    }
+
+    private String normalizeSessionStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+
+        String normalized = status.trim().toUpperCase();
+        boolean supported = Arrays.asList("CONVERTED", "DROP", "EXPLORING").contains(normalized);
+        if (!supported) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        return normalized;
+    }
+
     private SessionListResponse.SessionDto mapToDto(
             EventClickHouseRepository.SessionSummaryDto raw,
             List<Section> sections) {
@@ -217,15 +361,6 @@ public class AnalyticsService {
             }
         }
 
-        String status = "DROP";
-        if (raw.hasConversion()) {
-            status = "CONVERTED";
-        } else if (raw.hasExit()) {
-            status = "DROP";
-        } else if (raw.endTime().isAfter(LocalDateTime.now().minusMinutes(10))) {
-            status = "EXPLORING";
-        }
-
         String replayUrl = "/replays/" + raw.sessionId();
 
         return new SessionListResponse.SessionDto(
@@ -234,17 +369,9 @@ public class AnalyticsService {
                 device,
                 lastSectionName,
                 duration,
-                status,
+                raw.status(),
                 replayUrl
         );
-    }
-
-    private String findCtaSectionSelector(List<Section> sections) {
-        return sections.stream()
-                .filter(section -> section.getName() == SectionName.CTA_SECTION)
-                .map(Section::getCssSelector)
-                .findFirst()
-                .orElse("");
     }
 
     private String parseDevice(String userAgent) {

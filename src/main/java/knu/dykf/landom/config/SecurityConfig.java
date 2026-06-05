@@ -2,8 +2,8 @@ package knu.dykf.landom.config;
 
 import jakarta.servlet.http.HttpServletResponse;
 import knu.dykf.landom.exception.ErrorCode;
-import knu.dykf.landom.jwt.JwtAuthenticationFilter;
-import knu.dykf.landom.jwt.JwtUtil;
+import knu.dykf.landom.security.JwtAuthenticationFilter;
+import knu.dykf.landom.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Value;
@@ -60,6 +60,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/events").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/projects/*/optimizations/*/codegen").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/projects/*/optimizations/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/projects/*/analytics/section").permitAll()
                         .requestMatchers("/api/v1/events/**").permitAll()
                         .requestMatchers(
                                 "/api/v1/auth/**",
@@ -67,8 +70,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/index.html",
-                                "/landom-sdk.umd.js",
-                                "/api/v1/projects/*/analytics/section"
+                                "/landom-sdk.umd.js"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

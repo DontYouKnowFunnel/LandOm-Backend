@@ -1,6 +1,6 @@
 package knu.dykf.landom.service.project;
 
-import knu.dykf.landom.dto.request.project.LlmRequest;
+import knu.dykf.landom.dto.llm.LlmRequest;
 import knu.dykf.landom.dto.request.project.ProjectCreateRequest;
 import knu.dykf.landom.dto.request.project.ProjectUpdateRequest;
 import knu.dykf.landom.dto.response.project.ProjectListResponse;
@@ -10,6 +10,7 @@ import knu.dykf.landom.entity.user.User;
 import knu.dykf.landom.exception.CustomException;
 import knu.dykf.landom.exception.ErrorCode;
 import knu.dykf.landom.repository.project.ProjectRepository;
+import knu.dykf.landom.repository.project.SectionOptimizationRecommendationRepository;
 import knu.dykf.landom.repository.user.UserRepository;
 import knu.dykf.landom.service.analytics.FunnelAnalysisStatusService;
 import knu.dykf.landom.service.analytics.FunnelAnalysisTimeoutService;
@@ -32,6 +33,8 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final FunnelAnalysisStatusService funnelAnalysisStatusService;
     private final FunnelAnalysisTimeoutService funnelAnalysisTimeoutService;
+    private final LandingPageSnapshotService landingPageSnapshotService;
+    private final SectionOptimizationRecommendationRepository optimizationRecommendationRepository;
 
     @Value("${llm.server.url}")
     private String llmServerUrl;
@@ -80,6 +83,7 @@ public class ProjectService {
     @Transactional
     public void deleteProject(String username, Long projectId) {
         Project project = getProjectAndValidateOwnership(username, projectId);
+        optimizationRecommendationRepository.deleteBySection_Project_Id(projectId);
         projectRepository.delete(project);
     }
 
@@ -126,11 +130,13 @@ public class ProjectService {
         funnelAnalysisTimeoutService.scheduleTimeout(projectId);
 
         String targetUrl = project.getUrl();
-        String html = crawlingService.crawlLandingPage(targetUrl);
+        CrawlingService.LandingPageSnapshot snapshot = crawlingService.crawlLandingPageSnapshot(targetUrl);
+        landingPageSnapshotService.saveSnapshot(projectId, snapshot.html(), snapshot.css());
+
         String funnelAnalyzeUrl = llmServerUrl + "/api/v1/funnels/analyze";
 
         RestTemplate restTemplate = new RestTemplate();
-        LlmRequest request = new LlmRequest(projectId, html);
+        LlmRequest request = new LlmRequest(projectId, snapshot.html());
 
         restTemplate.postForEntity(funnelAnalyzeUrl, request, Void.class);
     }

@@ -14,7 +14,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "projects")
+@Table(
+        name = "projects",
+        indexes = {
+                @Index(name = "idx_projects_user_id", columnList = "user_id")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Project {
@@ -35,6 +40,16 @@ public class Project {
 
     private String url;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String landingPageHtml;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String landingPageCss;
+
+    private LocalDateTime landingPageCrawledAt;
+
     @Column(nullable = false, unique = true)
     private String apiKey;
 
@@ -51,6 +66,17 @@ public class Project {
         this.name = name;
         this.description = description;
         this.url = url;
+    }
+
+    public void updateLandingPageSnapshot(String html, LocalDateTime crawledAt) {
+        this.landingPageHtml = html;
+        this.landingPageCrawledAt = crawledAt;
+    }
+
+    public void updateLandingPageSnapshot(String html, String css, LocalDateTime crawledAt) {
+        this.landingPageHtml = html;
+        this.landingPageCss = css;
+        this.landingPageCrawledAt = crawledAt;
     }
 
     public FunnelAnalysisStatus getFunnelAnalysisStatus() {
