@@ -52,6 +52,9 @@ public class SectionOptimizationRecommendation {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String title;
 
+    @Column(columnDefinition = "TEXT")
+    private String wireframe;
+
     @Column(nullable = false, columnDefinition = "TEXT")
     private String problem;
 
@@ -105,6 +108,7 @@ public class SectionOptimizationRecommendation {
         this.section = section;
         this.rank = recommendation.rank();
         this.title = recommendation.title();
+        this.wireframe = normalizeWireframe(recommendation.wireframe());
         this.problem = recommendation.problem();
         this.whatToChange = new ArrayList<>(recommendation.what_to_change());
         this.implementationDirection = recommendation.implementation_direction();
@@ -132,6 +136,7 @@ public class SectionOptimizationRecommendation {
                 getUsageStatus(),
                 rank,
                 title,
+                normalizeWireframe(wireframe),
                 problem,
                 whatToChange,
                 implementationDirection,
@@ -140,5 +145,9 @@ public class SectionOptimizationRecommendation {
                 expectedBehaviorChange,
                 riskOrCaveat
         );
+    }
+
+    private String normalizeWireframe(String wireframe) {
+        return wireframe == null ? "" : wireframe;
     }
 }
