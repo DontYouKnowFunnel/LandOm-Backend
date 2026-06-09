@@ -18,6 +18,9 @@ public record OptimizationRecommendationResponse(
         @Schema(description = "개선안 제목", example = "CTA의 기대 결과를 명확히 전달")
         String title,
 
+        @Schema(description = "개선안이 적용된 와이어프레임 HTML", example = "<section class=\"py-12\">...</section>")
+        String wireframe,
+
         @Schema(description = "현재 섹션에서 해결할 문제", example = "CTA 문구가 추상적이라 클릭 후 얻는 결과가 명확하지 않습니다.")
         String problem,
 
